@@ -9,12 +9,29 @@ struct AddSubscriptionView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    NavigationLink {
+                        NewSubscriptionView(
+                            service: ServiceCatalog.customTemplate,
+                            initialStartDate: model.draftStartDate ?? .now,
+                            initialName: query,
+                            usesCustomBrand: true
+                        )
+                    } label: {
+                        Label(
+                            query.isEmpty ? "Add Custom Subscription" : "Create \u{201c}\(query)\u{201d}",
+                            systemImage: "plus.circle.fill"
+                        )
+                        .font(.nunito(.headline, weight: .semibold))
+                    }
+                }
+                .appThemedSurfaceRow()
+
                 if query.isEmpty {
                     Section("Import") {
                         ImportRow(title: "Import from App Store", systemImage: "apple.logo", action: showImportMessage)
-                        ImportRow(title: "Import from Notion", systemImage: "square.text.square", action: showImportMessage)
-                        ImportRow(title: "Import from Google Sheets", systemImage: "tablecells", action: showImportMessage)
                     }
+                    .appThemedSurfaceRow()
 
                     Section("Popular Services") {
                         ForEach(ServiceCatalog.popular) { service in
@@ -23,6 +40,7 @@ struct AddSubscriptionView: View {
                             }
                         }
                     }
+                    .appThemedSurfaceRow()
 
                     Section("All Services") {
                         ForEach(ServiceCatalog.all) { service in
@@ -31,6 +49,7 @@ struct AddSubscriptionView: View {
                             }
                         }
                     }
+                    .appThemedSurfaceRow()
                 } else if filteredServices.isEmpty {
                     ContentUnavailableView.search(text: query)
                         .listRowBackground(Color.clear)
@@ -42,11 +61,13 @@ struct AddSubscriptionView: View {
                             }
                         }
                     }
+                    .appThemedSurfaceRow()
                 }
             }
+            .appThemedScreenBackground()
             .navigationTitle("Add Subscription")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $query, prompt: "Services")
+            .searchable(text: $query, prompt: "Search or enter a service")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -100,9 +121,9 @@ private struct CatalogServiceRow: View {
             ServiceLogo(service: service, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(service.name)
-                    .font(.headline)
+                    .font(.nunito(.headline, weight: .semibold))
                 Text(service.category.rawValue)
-                    .font(.subheadline)
+                    .font(.nunito(.subheadline))
                     .foregroundStyle(.secondary)
             }
         }
@@ -114,6 +135,7 @@ struct NewSubscriptionView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let service: ServiceBrand
+    private let usesCustomBrand: Bool
 
     @State private var name: String
     @State private var schedule: PaymentSchedule = .monthly
@@ -127,9 +149,15 @@ struct NewSubscriptionView: View {
     @State private var notifications = "Default"
     @FocusState private var amountIsFocused: Bool
 
-    init(service: ServiceBrand, initialStartDate: Date) {
+    init(
+        service: ServiceBrand,
+        initialStartDate: Date,
+        initialName: String? = nil,
+        usesCustomBrand: Bool = false
+    ) {
         self.service = service
-        _name = State(initialValue: service.name)
+        self.usesCustomBrand = usesCustomBrand
+        _name = State(initialValue: initialName ?? service.name)
         _category = State(initialValue: service.category)
         _startDate = State(initialValue: initialStartDate)
         _endDate = State(initialValue: AppModel.calendar.date(byAdding: .year, value: 1, to: initialStartDate) ?? initialStartDate)
@@ -138,7 +166,7 @@ struct NewSubscriptionView: View {
     var body: some View {
         Form {
             SubscriptionFormSections(
-                service: service,
+                service: resolvedService,
                 name: $name,
                 schedule: $schedule,
                 startDate: $startDate,
@@ -152,6 +180,7 @@ struct NewSubscriptionView: View {
                 amountFocus: $amountIsFocused
             )
         }
+        .appThemedScreenBackground()
         .navigationTitle("New Subscription")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -175,10 +204,19 @@ struct NewSubscriptionView: View {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (parsedAmount ?? 0) > 0
     }
 
+    private var resolvedService: ServiceBrand {
+        guard usesCustomBrand else { return service }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ServiceBrand(
+            trimmedName.isEmpty ? "Custom Subscription" : trimmedName,
+            category: category
+        )
+    }
+
     private func addSubscription() {
         guard let amount = parsedAmount, amount > 0 else { return }
-        model.add(SubscriptionRecord(
-            service: service,
+        let subscription = SubscriptionRecord(
+            service: resolvedService,
             name: name,
             amount: amount,
             schedule: schedule,
@@ -188,9 +226,14 @@ struct NewSubscriptionView: View {
             paymentMethod: paymentMethod,
             listName: listName,
             notifications: notifications
-        ))
+        )
         model.showingCatalog = false
         dismiss()
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            model.add(subscription)
+        }
     }
 }
 
@@ -199,6 +242,7 @@ struct EditSubscriptionView: View {
     @Environment(\.dismiss) private var dismiss
     private let subscriptionID: UUID
     private let service: ServiceBrand
+    private let usesCustomBrand: Bool
 
     @State private var name: String
     @State private var schedule: PaymentSchedule
@@ -216,6 +260,7 @@ struct EditSubscriptionView: View {
     init(subscription: SubscriptionRecord) {
         subscriptionID = subscription.id
         service = subscription.service
+        usesCustomBrand = !ServiceCatalog.contains(subscription.service)
         _name = State(initialValue: subscription.name)
         _schedule = State(initialValue: subscription.schedule)
         _startDate = State(initialValue: subscription.startDate)
@@ -234,7 +279,7 @@ struct EditSubscriptionView: View {
         NavigationStack {
             Form {
                 SubscriptionFormSections(
-                    service: service,
+                    service: resolvedService,
                     name: $name,
                     schedule: $schedule,
                     startDate: $startDate,
@@ -248,6 +293,7 @@ struct EditSubscriptionView: View {
                     amountFocus: $amountIsFocused
                 )
             }
+            .appThemedScreenBackground()
             .navigationTitle("Edit Subscription")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -284,11 +330,20 @@ struct EditSubscriptionView: View {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && (parsedAmount ?? 0) > 0
     }
 
+    private var resolvedService: ServiceBrand {
+        guard usesCustomBrand else { return service }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ServiceBrand(
+            trimmedName.isEmpty ? service.name : trimmedName,
+            category: category
+        )
+    }
+
     private func saveSubscription() {
         guard let amount = parsedAmount, amount > 0 else { return }
         model.update(SubscriptionRecord(
             id: subscriptionID,
-            service: service,
+            service: resolvedService,
             name: name,
             amount: amount,
             schedule: schedule,
@@ -314,6 +369,8 @@ struct EditSubscriptionView: View {
 }
 
 private struct SubscriptionFormSections: View {
+    @Environment(\.appCurrency) private var currency
+    @Environment(\.appThemePalette) private var palette
     let service: ServiceBrand
     @Binding var name: String
     @Binding var schedule: PaymentSchedule
@@ -332,11 +389,12 @@ private struct SubscriptionFormSections: View {
             VStack(spacing: 8) {
                 ServiceLogo(service: service, size: 72)
                 Text(service.name)
-                    .font(.headline)
+                    .font(.nunito(.headline, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
         }
+        .appThemedSurfaceRow()
 
         Section("Subscription") {
             TextField("Name", text: $name)
@@ -347,25 +405,24 @@ private struct SubscriptionFormSections: View {
             }
             DatePicker("Start Date", selection: $startDate, displayedComponents: .date)
             Toggle("End Date", isOn: $hasEndDate.animation())
+                .tint(palette.toggleTint)
             if hasEndDate {
                 DatePicker("Ends", selection: $endDate, in: startDate..., displayedComponents: .date)
             }
         }
+        .appThemedSurfaceRow()
 
-        Section {
+        Section("Amount") {
             HStack {
-                Text("USD")
+                Text(currency.rawValue)
                     .foregroundStyle(.secondary)
                 TextField("0.00", text: $amountText)
                     .keyboardType(.decimalPad)
                     .multilineTextAlignment(.trailing)
                     .focused(amountFocus)
             }
-        } header: {
-            Text("Amount")
-        } footer: {
-            Text("Enter the charge for each billing period.")
         }
+        .appThemedSurfaceRow()
 
         Section("Organization") {
             Picker("Category", selection: $category) {
@@ -383,6 +440,7 @@ private struct SubscriptionFormSections: View {
                 ForEach(["Default", "None", "1 Day"], id: \.self, content: Text.init)
             }
         }
+        .appThemedSurfaceRow()
     }
 }
 

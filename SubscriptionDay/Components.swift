@@ -1,21 +1,49 @@
 import SwiftUI
 
+private let serviceAvatarPalette: [Color] = [
+    Color(red: 0.31, green: 0.47, blue: 0.94),
+    Color(red: 0.47, green: 0.33, blue: 0.88),
+    Color(red: 0.78, green: 0.30, blue: 0.62),
+    Color(red: 0.91, green: 0.36, blue: 0.32),
+    Color(red: 0.89, green: 0.52, blue: 0.22),
+    Color(red: 0.24, green: 0.64, blue: 0.42),
+    Color(red: 0.18, green: 0.61, blue: 0.70),
+    Color(red: 0.26, green: 0.52, blue: 0.78)
+]
+
 struct ServiceLogo: View {
     let service: ServiceBrand
     var size: CGFloat = 46
 
     var body: some View {
         Group {
-            if let assetName = service.assetName {
+            if let assetName = service.assetName, assetName.hasPrefix("circle_") {
                 Image(assetName)
                     .resizable()
-                    .scaledToFill()
+                    .scaledToFit()
+            } else if service.isPopular {
+                ZStack {
+                    Circle().fill(service.logoFillColor)
+                    if let assetName = service.assetName {
+                        Circle()
+                            .fill(.white)
+                            .padding(size * 0.10)
+                        Image(assetName)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(size * 0.16)
+                    } else {
+                        Image(systemName: service.fallbackSymbol)
+                            .font(.system(size: size * 0.43, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                }
             } else {
                 ZStack {
-                    Circle().fill(Color(hex: service.fallbackColor))
-                    Image(systemName: service.fallbackSymbol)
-                        .font(.system(size: size * 0.43, weight: .semibold))
-                        .foregroundStyle(service.fallbackColor == "F4F4F4" ? Color.black.opacity(0.78) : .white)
+                    Circle().fill(service.avatarColor)
+                    Text(service.initial)
+                        .font(.nunito(size: size * 0.44, weight: .bold))
+                        .foregroundStyle(.white)
                 }
             }
         }
@@ -30,7 +58,35 @@ struct ServiceLogo: View {
 }
 
 extension ServiceBrand {
+    var logoFillColor: Color {
+        switch id {
+        case "netflix":
+            Color(red: 0.90, green: 0.04, blue: 0.08)
+        case "chatgpt":
+            Color(red: 0.45, green: 0.67, blue: 0.61)
+        case "apple-icloud":
+            Color(red: 0.32, green: 0.66, blue: 0.96)
+        case "apple-one":
+            Color(red: 0.11, green: 0.11, blue: 0.12)
+        default:
+            Color(hex: fallbackColor)
+        }
+    }
+
+    var initial: String {
+        name.first.map { String($0).uppercased() } ?? "?"
+    }
+
+    var avatarColor: Color {
+        let index = id.utf8.reduce(0) { partialResult, byte in
+            (partialResult * 31 + Int(byte)) % serviceAvatarPalette.count
+        }
+        return serviceAvatarPalette[index]
+    }
+
     var brandTint: Color {
+        guard isPopular else { return avatarColor }
+
         switch id {
         case "netflix":
             return Color(red: 0.90, green: 0.10, blue: 0.15)

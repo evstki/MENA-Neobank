@@ -1,0 +1,28 @@
+<!-- <a href="https://www.twitch.tv/"> -->
+<svg id="circle-svg-twitch-purple"
+  width="35" height="35"
+  viewBox="0 0 24 24"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  role="link button img"
+  preserveAspectRatio="xMidYMid meet">
+  <title>Twitch</title>
+  <!-- Color Classes -->
+  <style type="text/css">
+    .color-twitch-purple {
+      fill: #6440a4;
+    }
+    .color-white {
+      fill: #ffffff;
+    }
+  </style>
+  <!-- Background -->
+  <circle id="bg-twitch-purple"
+    class="color-twitch-purple"
+    cx="12" cy="12" r="12" />
+  <!-- Logo -->
+  <path id="logo-twitch-purple"
+    class="color-white"
+    transform="scale(0.617,0.617) translate(7.45,7.45)"
+    d="M16.499,8.089h-1.636v4.91h1.636V8.089z M12,8.089h-1.637v4.91H12V8.089z M4.228,3.178L3,6.451v13.092h4.499V22h2.456 l2.454-2.456h3.681L21,14.636V3.178H4.228z M19.364,13.816l-2.864,2.865H12l-2.453,2.453V16.68H5.863V4.814h13.501V13.816z" />
+</svg>

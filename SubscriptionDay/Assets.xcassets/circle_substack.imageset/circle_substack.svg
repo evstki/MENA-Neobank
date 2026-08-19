@@ -1,0 +1,28 @@
+<!-- <a href="https://substack.com/"> -->
+<svg id="circle-svg-substack-orange"
+  width="35" height="35"
+  viewBox="0 0 448 512"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  role="link button img"
+  preserveAspectRatio="xMidYMid meet">
+  <title>Substack</title>
+  <!-- Color Classes -->
+  <style type="text/css">
+    .color-substack-orange {
+      fill: #FF681A;
+    }
+    .color-white {
+      fill: #ffffff;
+    }
+  </style>
+  <!-- Background -->
+  <circle id="bg-substack-orange"
+    class="color-substack-orange"
+    cx="224" cy="256" r="256" />
+  <!-- Logo -->
+  <path id="logo-substack-orange"
+    class="color-white"
+    transform="scale(0.5,0.5) translate(220,270)"
+    d="M0 0h448v62.804H0V0zm0 229.083h448v282.388L223.954 385.808 0 511.471V229.083zm0-114.542h448v62.804H0v-62.804z" />
+</svg>

@@ -1,0 +1,29 @@
+<!-- <a href="http://minecraft.net"> -->
+<svg id="circle-svg-minecraft-dark-brown"
+  width="35" height="35"
+  viewBox="0 0 1024 1024"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  role="link button img"
+  preserveAspectRatio="xMidYMid meet">
+  <title>Minecraft</title>
+  <!-- Color Classes -->
+  <style type="text/css">
+    .color-minecraft-dark-brown {
+      fill: #61371F;
+      /* Alternates: #C28340 #61371F */
+    }
+    .color-white {
+      fill: #ffffff;
+    }
+  </style>
+  <!-- Background -->
+  <circle id="bg-minecraft-dark-brown"
+    class="color-minecraft-dark-brown"
+    cx="512" cy="512" r="512" />
+  <!-- Logo -->
+  <path id="logo-minecraft-dark-brown"
+    class="color-white"
+    transform="scale(0.6,0.6) translate(340,340)"
+    d="M512 1024L0 768V256L512 0l512 256v512zm448-736L512 64L64 288v96h64v64h64v-64h64v64h64v64h64v-64l64 32v96h64v-64h64v64h64v-64h64v-96l64-32v64h64v-96l64-32v64h64v-96zm-704 96z" />
+</svg>

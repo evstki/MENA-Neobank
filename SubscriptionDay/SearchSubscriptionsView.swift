@@ -17,8 +17,10 @@ struct SearchSubscriptionsView: View {
             List {
                 ForEach(model.filteredSubscriptions) { subscription in
                     SearchSubscriptionRow(subscription: subscription)
+                        .appThemedSurfaceRow()
                 }
             }
+            .appThemedScreenBackground()
             .overlay {
                 if model.subscriptions.isEmpty {
                     ContentUnavailableView(
@@ -52,6 +54,7 @@ struct SearchSubscriptionsView: View {
 }
 
 private struct SearchSubscriptionRow: View {
+    @Environment(\.appCurrency) private var currency
     let subscription: SubscriptionRecord
 
     var body: some View {
@@ -59,14 +62,14 @@ private struct SearchSubscriptionRow: View {
             ServiceLogo(service: subscription.service, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(subscription.name)
-                    .font(.headline)
+                    .font(.nunito(.headline, weight: .semibold))
                 Text("\(subscription.schedule.rawValue) · \(subscription.category.rawValue)")
-                    .font(.subheadline)
+                    .font(.nunito(.subheadline))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(subscription.amount, format: .currency(code: "USD"))
-                .fontWeight(.medium)
+            Text(currency.formatted(subscription.amount))
+                .font(.nunito(.body, weight: .medium))
                 .monospacedDigit()
         }
         .accessibilityElement(children: .combine)

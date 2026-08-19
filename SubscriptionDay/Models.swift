@@ -100,20 +100,19 @@ struct SubscriptionRecord: Identifiable, Hashable {
     }
 }
 
-enum SubscriptionListFilter: String, CaseIterable, Identifiable, Codable {
-    case all = "All"
-    case personal = "Personal"
-    case work = "Work"
-
-    var id: String { rawValue }
-}
-
 enum ServiceCatalog {
+    static let customTemplate = ServiceBrand(
+        "Custom Subscription",
+        symbol: "plus",
+        color: "5F78F2",
+        category: .other
+    )
+
     static let services: [ServiceBrand] = [
-        ServiceBrand("Youtube", asset: "logo_youtube", symbol: "play.fill", color: "E53935", category: .entertainment, popular: true),
-        ServiceBrand("Spotify", asset: "logo_spotify", symbol: "waveform", color: "26D965", category: .entertainment, popular: true),
+        ServiceBrand("Youtube", asset: "circle_youtube", symbol: "play.fill", color: "E53935", category: .entertainment, popular: true),
+        ServiceBrand("Spotify", asset: "circle_spotify", symbol: "waveform", color: "26D965", category: .entertainment, popular: true),
         ServiceBrand("Netflix", asset: "logo_netflix", symbol: "n.square.fill", color: "181818", category: .entertainment, popular: true),
-        ServiceBrand("Linkedin", asset: "logo_linkedin", symbol: "person.2.fill", color: "1672B8", category: .social, popular: true),
+        ServiceBrand("Linkedin", asset: "circle_linkedin", symbol: "person.2.fill", color: "1672B8", category: .social, popular: true),
         ServiceBrand("Cursor", asset: "logo_cursor", symbol: "cursorarrow", color: "181818", category: .productivity, popular: true),
         ServiceBrand("Claude", asset: "logo_claude", symbol: "sun.max.fill", color: "D98D72", category: .productivity, popular: true),
         ServiceBrand("ChatGPT", asset: "logo_chatgpt", symbol: "hexagon", color: "F4F4F4", category: .productivity, popular: true),
@@ -125,7 +124,7 @@ enum ServiceCatalog {
 
         ServiceBrand("Adobe Cloud", asset: "logo_adobe_cloud", symbol: "scribble.variable", color: "F54D8C", category: .productivity),
         ServiceBrand("Amazon Music", asset: "logo_amazon_music", symbol: "music.note", color: "24C4D0", category: .entertainment),
-        ServiceBrand("Amazon Prime", asset: "logo_amazon_prime", symbol: "shippingbox.fill", color: "F4F4F4", category: .shopping),
+        ServiceBrand("Amazon Prime", asset: "circle_amazon", symbol: "shippingbox.fill", color: "146EB4", category: .shopping),
         ServiceBrand("Apple Arcade", asset: "logo_apple_arcade", symbol: "gamecontroller.fill", color: "FF5A67", category: .entertainment),
         ServiceBrand("Apple Care+", asset: "logo_apple_care", symbol: "apple.logo", color: "F4F4F4", category: .other),
         ServiceBrand("Apple Developer", asset: "logo_apple_developer", symbol: "apple.logo", color: "D9E9FF", category: .productivity),
@@ -140,17 +139,17 @@ enum ServiceCatalog {
         ServiceBrand("Daily Burn", asset: "logo_daily_burn", symbol: "flame.fill", color: "F4F4F4", category: .health),
         ServiceBrand("Disney+", asset: "logo_disney", symbol: "sparkles.tv.fill", color: "293171", category: .entertainment),
         ServiceBrand("DoorDash", asset: "logo_doordash", symbol: "takeoutbag.and.cup.and.straw.fill", color: "F4F4F4", category: .shopping),
-        ServiceBrand("Dropbox", asset: "logo_dropbox", symbol: "shippingbox.fill", color: "1768D8", category: .cloud),
-        ServiceBrand("Duolingo", asset: "logo_duolingo", symbol: "bird.fill", color: "75D52A", category: .education),
-        ServiceBrand("EA Play", asset: "logo_ea_play", symbol: "gamecontroller.fill", color: "F75F63", category: .entertainment),
-        ServiceBrand("Etsy Plus", asset: "logo_etsy", symbol: "cart.fill", color: "EE6D2D", category: .shopping),
+        ServiceBrand("Dropbox", asset: "circle_dropbox", symbol: "shippingbox.fill", color: "1768D8", category: .cloud),
+        ServiceBrand("Duolingo", asset: "circle_duolingo", symbol: "bird.fill", color: "75D52A", category: .education),
+        ServiceBrand("EA Play", asset: "circle_ea_play", symbol: "gamecontroller.fill", color: "F75F63", category: .entertainment),
+        ServiceBrand("Etsy Plus", asset: "circle_etsy", symbol: "cart.fill", color: "EE6D2D", category: .shopping),
         ServiceBrand("Figma", asset: "logo_figma", symbol: "circle.hexagongrid.fill", color: "F4F4F4", category: .productivity),
         ServiceBrand("Framer", asset: "logo_framer", symbol: "f.square.fill", color: "2585E9", category: .productivity),
         ServiceBrand("Fubotv", asset: "logo_fubo", symbol: "tv.fill", color: "F4F4F4", category: .entertainment),
         ServiceBrand("Gemini", asset: "logo_gemini", symbol: "sparkle", color: "F4F4F4", category: .productivity),
         ServiceBrand("Google Drive", asset: "logo_google_drive", symbol: "triangle.fill", color: "F4F4F4", category: .cloud),
         ServiceBrand("Google One", asset: "logo_google_one", symbol: "g.circle.fill", color: "F4F4F4", category: .cloud),
-        ServiceBrand("Google Play", asset: "logo_google_play", symbol: "play.fill", color: "F4F4F4", category: .entertainment),
+        ServiceBrand("Google Play", asset: "circle_google_play", symbol: "play.fill", color: "5F6368", category: .entertainment),
         ServiceBrand("Grammarly", asset: "logo_grammarly", symbol: "textformat", color: "55BEA8", category: .productivity),
         ServiceBrand("HBO Max", asset: "logo_hbo", symbol: "tv.fill", color: "6930C9", category: .entertainment),
         ServiceBrand("Headspace", asset: "logo_headspace", symbol: "face.smiling", color: "F98B1D", category: .health),
@@ -160,20 +159,48 @@ enum ServiceCatalog {
         ServiceBrand("Lyft Pink", asset: "logo_lyft", symbol: "car.fill", color: "ED31BA", category: .other),
         ServiceBrand("Microsoft 365", asset: "logo_microsoft365", symbol: "square.stack.3d.up.fill", color: "F4F4F4", category: .productivity),
         ServiceBrand("Midjourney", asset: "logo_midjourney", symbol: "sailboat.fill", color: "F4F4F4", category: .productivity),
-        ServiceBrand("Nintendo Online", asset: "logo_nintendo", symbol: "gamecontroller.fill", color: "E5313C", category: .entertainment),
+        ServiceBrand("Nintendo Online", asset: "circle_nintendo", symbol: "gamecontroller.fill", color: "E5313C", category: .entertainment),
+        ServiceBrand("Bitbucket", asset: "circle_bitbucket", symbol: "shippingbox.fill", color: "0052CC", category: .productivity),
+        ServiceBrand("Discord Nitro", asset: "circle_discord", symbol: "bubble.left.and.bubble.right.fill", color: "7289DA", category: .social),
+        ServiceBrand("Flickr Pro", asset: "circle_flickr", symbol: "photo.on.rectangle.angled", color: "0063DC", category: .cloud),
+        ServiceBrand("GitHub", asset: "circle_github", symbol: "chevron.left.forwardslash.chevron.right", color: "24292D", category: .productivity),
+        ServiceBrand("GitLab", asset: "circle_gitlab", symbol: "chevron.left.forwardslash.chevron.right", color: "FC6D26", category: .productivity),
+        ServiceBrand("Ko-fi Gold", asset: "circle_kofi", symbol: "cup.and.saucer.fill", color: "29ABE0", category: .productivity),
+        ServiceBrand("Last.fm Pro", asset: "circle_lastfm", symbol: "music.note.list", color: "D51007", category: .entertainment),
+        ServiceBrand("Medium Membership", asset: "circle_medium", symbol: "text.book.closed.fill", color: "00AB6C", category: .education),
+        ServiceBrand("Meetup", asset: "circle_meetup", symbol: "person.3.fill", color: "F64060", category: .social),
+        ServiceBrand("Minecraft Realms", asset: "circle_minecraft", symbol: "cube.fill", color: "6B4F3A", category: .entertainment),
+        ServiceBrand("Nexus Mods Premium", asset: "circle_nexus_mods", symbol: "wrench.and.screwdriver.fill", color: "2D6E9E", category: .entertainment),
         ServiceBrand("Notion", symbol: "square.text.square.fill", color: "F4F4F4", category: .productivity),
-        ServiceBrand("Patreon", symbol: "p.circle.fill", color: "F35B4C", category: .other),
-        ServiceBrand("PlayStation Plus", symbol: "gamecontroller.fill", color: "2364B8", category: .entertainment),
-        ServiceBrand("Slack", symbol: "number", color: "5B2C6F", category: .productivity),
-        ServiceBrand("Xbox Game Pass", symbol: "xbox.logo", color: "3AA638", category: .entertainment),
+        ServiceBrand("Patreon", asset: "circle_patreon", symbol: "p.circle.fill", color: "F35B4C", category: .other),
+        ServiceBrand("PlayStation Plus", asset: "circle_playstation", symbol: "gamecontroller.fill", color: "2364B8", category: .entertainment),
+        ServiceBrand("Reddit Premium", asset: "circle_reddit", symbol: "bubble.left.and.bubble.right.fill", color: "FF4500", category: .social),
+        ServiceBrand("RuneScape Membership", asset: "circle_runescape", symbol: "gamecontroller.fill", color: "2C5877", category: .entertainment),
+        ServiceBrand("Slack", asset: "circle_slack", symbol: "number", color: "36C5F0", category: .productivity),
+        ServiceBrand("Snapchat+", asset: "circle_snapchat", symbol: "message.fill", color: "FFFC00", category: .social),
+        ServiceBrand("SoundCloud Go+", asset: "circle_soundcloud", symbol: "waveform", color: "FF5500", category: .entertainment),
+        ServiceBrand("Substack", asset: "circle_substack", symbol: "newspaper.fill", color: "FF6719", category: .education),
+        ServiceBrand("Telegram Premium", asset: "circle_telegram", symbol: "paperplane.fill", color: "229ED9", category: .social),
+        ServiceBrand("Trello", asset: "circle_trello", symbol: "rectangle.split.2x1.fill", color: "0079BF", category: .productivity),
+        ServiceBrand("Twitch", asset: "circle_twitch", symbol: "play.rectangle.fill", color: "9146FF", category: .entertainment),
+        ServiceBrand("Ubisoft+", asset: "circle_ubisoft", symbol: "gamecontroller.fill", color: "FF0A8D", category: .entertainment),
+        ServiceBrand("Ultimate Guitar Pro", asset: "circle_ultimate_guitar", symbol: "guitars.fill", color: "FFCC00", category: .education),
+        ServiceBrand("Vimeo", asset: "circle_vimeo", symbol: "video.fill", color: "1AB7EA", category: .productivity),
+        ServiceBrand("VSCO", asset: "circle_vsco", symbol: "camera.aperture", color: "F4F4F4", category: .productivity),
+        ServiceBrand("X Premium", asset: "circle_x", symbol: "bubble.left.fill", color: "181818", category: .social),
+        ServiceBrand("Xbox Game Pass", asset: "circle_xbox", symbol: "xbox.logo", color: "3AA638", category: .entertainment),
         ServiceBrand("Zoom", symbol: "video.fill", color: "2D78F4", category: .productivity)
     ]
 
     static var popular: [ServiceBrand] { services.filter(\.isPopular) }
     static var all: [ServiceBrand] { services.filter { !$0.isPopular }.sorted { $0.name < $1.name } }
 
-    static func service(named name: String) -> ServiceBrand {
-        services.first { $0.name == name } ?? services[0]
+    static func contains(_ service: ServiceBrand) -> Bool {
+        services.contains { $0.id == service.id }
+    }
+
+    static func service(named name: String, category: SubscriptionCategory = .other) -> ServiceBrand {
+        services.first { $0.name == name } ?? ServiceBrand(name, category: category)
     }
 }
 
@@ -184,7 +211,6 @@ final class AppModel {
     var selectedMonth: Date = AppModel.makeDate(year: 2026, month: 8, day: 1) { didSet { persist() } }
     var selectedDay = AppModel.calendar.component(.day, from: Date())
     var selectedDate = Date()
-    var listFilter: SubscriptionListFilter = .all { didSet { persist() } }
     var showingSettings = false
     var showingCatalog = false
     var showingSearch = false
@@ -200,7 +226,6 @@ final class AppModel {
 
     private static let storageKey = "subscription-day.records.v1"
     private static let monthKey = "subscription-day.selected-month.v1"
-    private static let filterKey = "subscription-day.list-filter.v1"
 
     let freeLimit = 5
 
@@ -221,7 +246,7 @@ final class AppModel {
     }
 
     var visibleSubscriptions: [SubscriptionRecord] {
-        subscriptions.filter(matchesCurrentList)
+        subscriptions
     }
 
     var filteredSubscriptions: [SubscriptionRecord] {
@@ -266,7 +291,12 @@ final class AppModel {
         selectedMonth = Self.monthStart(for: date)
         selectedDay = day
         selectedDate = date
-        showingDaySubscriptions = true
+        if subscriptions(on: date).isEmpty {
+            draftStartDate = date
+            showingCatalog = true
+        } else {
+            showingDaySubscriptions = true
+        }
     }
 
     func total(in month: Date, category: SubscriptionCategory? = nil) -> Double {
@@ -302,6 +332,24 @@ final class AppModel {
         months(in: year).reduce(0) { $0 + total(in: $1, category: category) }
     }
 
+    func lifetimePaidTotal(asOf date: Date = Date()) -> Double {
+        subscriptions.reduce(0) { total, subscription in
+            total + lifetimePaidAmount(for: subscription, asOf: date)
+        }
+    }
+
+    func lifetimePaidTotalsByService(asOf date: Date = Date()) -> [(service: ServiceBrand, amount: Double)] {
+        Dictionary(grouping: subscriptions, by: \.service)
+            .map { service, records in
+                let amount = records.reduce(0) { total, subscription in
+                    total + lifetimePaidAmount(for: subscription, asOf: date)
+                }
+                return (service: service, amount: amount)
+            }
+            .filter { $0.amount > 0 }
+            .sorted { $0.amount > $1.amount }
+    }
+
     func categoryForecasts(in year: Int) -> [(category: SubscriptionCategory, amount: Double)] {
         SubscriptionCategory.allCases
             .map { ($0, forecast(in: year, category: $0)) }
@@ -309,16 +357,50 @@ final class AppModel {
             .sorted { $0.1 > $1.1 }
     }
 
-    func months(in year: Int) -> [Date] {
-        (1...12).map { Self.makeDate(year: year, month: $0, day: 1) }
+    private func lifetimePaidAmount(for subscription: SubscriptionRecord, asOf date: Date) -> Double {
+        let cutoff = Self.calendar.startOfDay(for: date)
+        let start = Self.calendar.startOfDay(for: subscription.startDate)
+        let end = min(
+            cutoff,
+            subscription.endDate.map { Self.calendar.startOfDay(for: $0) } ?? cutoff
+        )
+        guard start <= end else { return 0 }
+
+        var month = Self.monthStart(for: start)
+        let finalMonth = Self.monthStart(for: end)
+        var paid = 0.0
+
+        while month <= finalMonth {
+            let completedCharges = datesDue(for: subscription, in: month)
+                .filter { Self.calendar.startOfDay(for: $0) <= end }
+            paid += Double(completedCharges.count) * subscription.amount
+
+            guard let nextMonth = Self.calendar.date(byAdding: .month, value: 1, to: month) else {
+                break
+            }
+            month = nextMonth
+        }
+
+        return paid
     }
 
-    private func matchesCurrentList(_ subscription: SubscriptionRecord) -> Bool {
-        switch listFilter {
-        case .all: true
-        case .personal: subscription.listName == SubscriptionListFilter.personal.rawValue
-        case .work: subscription.listName == SubscriptionListFilter.work.rawValue
-        }
+    func serviceForecasts(
+        in year: Int,
+        category: SubscriptionCategory? = nil
+    ) -> [(service: ServiceBrand, amount: Double)] {
+        Dictionary(grouping: activeSubscriptions(in: year, category: category), by: \.service)
+            .map { service, subscriptions -> (service: ServiceBrand, amount: Double) in
+                let amount = months(in: year).reduce(0) { total, month in
+                    total + subscriptions.reduce(0) { $0 + chargeAmount(for: $1, in: month) }
+                }
+                return (service, amount)
+            }
+            .filter { $0.amount > 0 }
+            .sorted { $0.amount > $1.amount }
+    }
+
+    func months(in year: Int) -> [Date] {
+        (1...12).map { Self.makeDate(year: year, month: $0, day: 1) }
     }
 
     private func chargeAmount(for subscription: SubscriptionRecord, in month: Date) -> Double {
@@ -387,7 +469,6 @@ final class AppModel {
             defaults.set(data, forKey: Self.storageKey)
         }
         defaults.set(selectedMonth.timeIntervalSince1970, forKey: Self.monthKey)
-        defaults.set(listFilter.rawValue, forKey: Self.filterKey)
     }
 
     private func restore() {
@@ -397,9 +478,6 @@ final class AppModel {
         }
         if defaults.object(forKey: Self.monthKey) != nil {
             selectedMonth = Self.monthStart(for: Date(timeIntervalSince1970: defaults.double(forKey: Self.monthKey)))
-        }
-        if let raw = defaults.string(forKey: Self.filterKey), let filter = SubscriptionListFilter(rawValue: raw) {
-            listFilter = filter
         }
     }
 
@@ -458,7 +536,7 @@ private struct PersistedSubscription: Codable {
     var record: SubscriptionRecord {
         SubscriptionRecord(
             id: id,
-            service: ServiceCatalog.service(named: serviceName),
+            service: ServiceCatalog.service(named: serviceName, category: category),
             name: name,
             amount: amount,
             schedule: schedule,

@@ -1,0 +1,32 @@
+<!-- <a href="https://www.patreon.com/"> -->
+<svg id="circle-svg-patreon-red"
+  width="35" height="35"
+  viewBox="0 0 24 24"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  role="link button img"
+  preserveAspectRatio="xMidYMid meet">
+  <title>Patreon</title>
+  <!-- Color Classes -->
+  <style type="text/css">
+    .color-patreon-red {
+      fill: #ff424d;
+    }
+    .color-white {
+      fill: #ffffff;
+    }
+  </style>
+  <!-- Background -->
+  <circle id="bg-patreon-red"
+    class="color-patreon-red"
+    cx="12" cy="12" r="12" />
+  <!-- Logo -->
+  <g id="logo-patreon-group-red"
+    class="color-white"
+    transform="scale(0.617,0.617) translate(7.45,7.45)">
+    <circle id="logo-patreon-circle-red"
+      cx="14.508" cy="9.831" r="6.496" />
+    <path id="logo-patreon-rectangle-red"
+      d="M2.996 3.335H6.17v17.33H2.996z" />
+  </g>
+</svg>

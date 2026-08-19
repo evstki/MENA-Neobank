@@ -1,23 +1,24 @@
 import SwiftUI
+import StoreKit
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.appAccentColor) private var accentColor
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.requestReview) private var requestReview
+    @AppStorage("subscription-day.has-requested-review") private var hasRequestedReview = false
     @State private var selectedTab: AppTab = .subscriptions
 
     var body: some View {
         @Bindable var model = model
 
         TabView(selection: $selectedTab) {
-            Tab("Subscriptions", systemImage: "calendar", value: .subscriptions) {
+            Tab("Overview", systemImage: "calendar", value: .subscriptions) {
                 HomeView()
             }
 
             Tab("Analytics", systemImage: "chart.bar.xaxis", value: .analytics) {
                 AnalyticsView(showsDoneButton: false)
-            }
-
-            Tab("Settings", systemImage: "gearshape", value: .settings) {
-                SettingsView(showsDoneButton: false)
             }
 
             Tab(value: .add, role: .search) {
@@ -28,6 +29,7 @@ struct ContentView: View {
             }
         }
         .onChange(of: selectedTab, handleTabChange)
+        .onChange(of: model.subscriptions.count, requestReviewAfterSubscriptionAdded)
         .sheet(isPresented: $model.showingCatalog) {
                 AddSubscriptionView()
                     .presentationDetents([.large])
@@ -50,6 +52,8 @@ struct ContentView: View {
                     .presentationDragIndicator(.visible)
             }
         }
+        .environment(\.appThemePalette, palette)
+        .tint(palette.accent)
     }
 
     private func handleTabChange(_ oldTab: AppTab, _ newTab: AppTab) {
@@ -63,10 +67,24 @@ struct ContentView: View {
         model.showingCatalog = true
     }
 
+    private func requestReviewAfterSubscriptionAdded(_ oldCount: Int, _ newCount: Int) {
+        guard newCount > oldCount, !hasRequestedReview else { return }
+        hasRequestedReview = true
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            requestReview()
+        }
+    }
+
     private var accentAddIcon: UIImage {
-        let accentColor = UIColor(red: 0.38, green: 0.50, blue: 1.00, alpha: 1.00)
         let symbol = UIImage(systemName: "plus.circle.fill") ?? UIImage()
-        return symbol.withTintColor(accentColor, renderingMode: .alwaysOriginal)
+        return symbol.withTintColor(UIColor(palette.accent), renderingMode: .alwaysOriginal)
+    }
+
+    private var palette: AppThemePalette {
+        AppThemePalette(accent: accentColor, colorScheme: colorScheme)
     }
 }
 
@@ -74,7 +92,6 @@ private enum AppTab: Hashable {
     case subscriptions
     case analytics
     case add
-    case settings
 }
 
 #Preview {

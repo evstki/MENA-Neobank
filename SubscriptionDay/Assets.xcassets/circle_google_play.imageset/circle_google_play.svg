@@ -1,0 +1,64 @@
+<!-- <a href="https://play.google.com/store/apps/"> -->
+<svg id="circle-svg-googleplay-color-grey"
+  width="35" height="35"
+  viewBox="0 0 274 274"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  role="link button img"
+  preserveAspectRatio="xMidYMid meet">
+  <title>Google Play</title>
+  <!-- Color Classes -->
+  <style type="text/css">
+    /* blue: #00D3FF; green: #00EE76; red: #F43249; yellow: #FFD900; */
+    .color-googleplay-blue {
+      fill: #00D3FF;
+    }
+    .color-googleplay-green {
+      fill: #00EE76;
+    }
+    .color-googleplay-grey {
+      fill: #eceadd;
+    }
+    .color-googleplay-red {
+      fill: #F43249;
+    }
+    .color-googleplay-yellow {
+      fill: #FFD900;
+    }
+    .color-white {
+      fill: #ffffff;
+    }
+    .stroke-googleplay-circle-grey {
+      stroke: #dbd9cc;
+      stroke-width: 5;
+    }
+    .stroke-googleplay-triangle-outline-grey {
+      fill: none;
+      stroke: #b9b7aa;
+      stroke-width: 8;
+    }
+  </style>
+  <!-- Background -->
+  <circle id="bg-googleplay-color-grey"
+    class="color-googleplay-grey stroke-googleplay-circle-grey"
+    cx="137" cy="137" r="132" />
+  <!-- Logo -->
+  <g id="logo-googleplay-group-triangle-color-grey"
+    transform="scale(0.55,0.55) translate(153,115)">
+    <path id="logo-googleplay-right-yellow-color-grey"
+      class="color-googleplay-yellow"
+      d="M188.813 178.875c32.46-17.823 57.067-31.404 59.188-32.46c6.785-3.608 13.792-13.158 0-20.576c-4.453-2.333-28.428-15.491-59.188-32.46l-42.642 43.065l42.642 42.43z" />
+    <path id="logo-googleplay-bottom-red-color-grey"
+      class="color-googleplay-red"
+      d="M146.171 136.444L10.394 273.287c3.187.422 6.785-.423 11.027-2.755c8.906-4.875 103.318-56.434 167.392-91.647l-42.642-42.441z" />
+    <path id="logo-googleplay-top-green-color-grey"
+      class="color-googleplay-green"
+      d="M146.171 136.444l42.642-42.853S30.971 7.45 21.421 2.365C17.823.234 13.791-.399 10.183.234l135.988 136.21z" />
+    <path id="logo-googleplay-left-blue-color-grey"
+      class="color-googleplay-blue"
+      d="M146.171 136.444L10.183.234C4.664 1.51 0 6.386 0 16.358v240.805c0 9.127 3.609 15.701 10.394 16.335l135.777-137.054z" />
+    <path id="logo-googleplay-triangle-outline-color-grey"
+      class="stroke-googleplay-triangle-outline-grey"
+      d="M 0 16.358 v 240.805 c 0 9.127, 3.609 15.701, 10.394 16.335 c 3.187 0.422, 6.785 -0.423, 11.027 -2.755 c 8.906 -4.875, 103.318 -56.434, 167.392 -91.647 L 188.813 178.875 c 32.46 -17.823, 57.067 -31.404, 59.188 -32.46 c 6.785 -3.608, 13.792 -13.158, 0 -20.576 c -4.453 -2.333, -28.428 -15.491, -59.188 -32.46 L 188.813 93.591 S 30.971 7.45, 21.421 2.365 C 17.823 0.234, 13.791 -.399, 10.183 0.234 C 4.664 1.51, 0 6.386, 0 16.358" />
+  </g>
+</svg>

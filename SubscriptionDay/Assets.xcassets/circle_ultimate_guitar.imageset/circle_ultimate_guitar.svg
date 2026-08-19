@@ -1,0 +1,28 @@
+<!-- <a href="https://www.ultimate-guitar.com/"> -->
+<svg id="circle-svg-ultimateguitar-yellow"
+  width="35" height="35"
+  viewBox="0 0 42 42"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  role="link button img"
+  preserveAspectRatio="xMidYMid meet">
+  <title>Ultimate Guitar</title>
+  <!-- Color Classes -->
+  <style type="text/css">
+    .color-ultimateguitar-yellow {
+      fill: #FFC600;
+    }
+    .color-white {
+      fill: #ffffff;
+    }
+  </style>
+  <!-- Background -->
+  <circle id="bg-ultimateguitar-yellow"
+    class="color-ultimateguitar-yellow"
+    cx="21" cy="21" r="21" />
+  <!-- Logo -->
+  <path id="logo-ultimateguitar-yellow"
+    class="color-white"
+    transform="scale(0.85,0.85) translate(4.0,4.1)"
+    d="M9.9,6.3l3.5,3.6c4.5-2.8,10.1-2.8,14.6,0l3.5-3.6v4.3l-1.1,1.1c1.5,1.5,2.6,3.4,3.3,5.4h-3.1 c-2.4-5.5-8.8-8-14.3-5.6s-8,8.8-5.6,14.3s8.8,8,14.3,5.6c3.5-1.5,5.9-4.7,6.4-8.5h-9.3l-2.9-2.9h15.1c0.1,0.5,0.1,1,0.1,1.5 c0,7.6-6.2,13.8-13.8,13.8S7,29.1,7,21.5c0-3.7,1.5-7.2,4-9.7l-1.1-1.1V6.3z" />
+</svg>

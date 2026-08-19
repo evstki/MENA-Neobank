@@ -1,0 +1,32 @@
+<!-- <a href="https://gitlab.com"> -->
+<svg id="circle-svg-gitlab-orange"
+  width="35" height="35"
+  viewBox="0 0 68 68"
+  version="1.1"
+  xmlns="http://www.w3.org/2000/svg"
+  role="link button img"
+  preserveAspectRatio="xMidYMid meet">
+  <title>Gitlab</title>
+  <!-- Color Classes -->
+  <style type="text/css">
+    .color-gitlab-orange {
+      fill: #F96424;
+    }
+    .color-white {
+      fill: #ffffff;
+    }
+  </style>
+  <!-- Background -->
+  <circle id="bg-gitlab-orange"
+    class="color-gitlab-orange"
+    cx="34" cy="34" r="34" />
+  <!-- Logo -->
+  <g id="logo-gitlab-group-orange"
+    class="color-white"
+    transform="scale(0.6,0.6) translate(24,28)">
+    <path id="logo-gitlab-ears-orange"
+      d="M13.2689249,0.858678261 L20.4920499,23.0676522 L44.3957999,23.0676522 L51.6189249,0.858678261 C51.9899666,-0.286226087 53.7422582,-0.286226087 54.1105916,0.858678261 L64.7624666,34.2101217 C64.9249666,34.7093217 64.9249666,35.2410783 64.7814249,35.7294261 L0.106424884,35.7294261 C-0.0389659813,35.2324734 -0.0323625306,34.7032786 0.125383217,34.2101217 L10.7772582,0.858678261 C11.1455916,-0.286226087 12.8978832,-0.286226087 13.2689249,0.858678261 Z" />
+    <path id="logo-gitlab-face-orange"
+      d="M0.00350821738,34.8829565 C-0.0412288604,35.726797 0.344215838,36.5357999 1.02725822,37.031687 L32.4439249,59.9297739 L32.4628832,59.9162087 L32.4791332,59.9297739 L32.4655916,59.9134957 L63.8605916,37.031687 C64.5448664,36.5355988 64.9305248,35.7251253 64.8843416,34.8802435 L0.00350821738,34.8802435 L0.00350821738,34.8829565 Z" />
+  </g>
+</svg>
