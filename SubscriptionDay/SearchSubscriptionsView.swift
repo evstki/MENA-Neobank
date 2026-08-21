@@ -5,9 +5,17 @@ struct SearchSubscriptionsView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isSearchFocused: Bool
     let showsDoneButton: Bool
+    let automaticallyFocusesSearch: Bool
+    let navigationTitle: LocalizedStringResource
 
-    init(showsDoneButton: Bool = true) {
+    init(
+        showsDoneButton: Bool = true,
+        automaticallyFocusesSearch: Bool = true,
+        navigationTitle: LocalizedStringResource = "Search"
+    ) {
         self.showsDoneButton = showsDoneButton
+        self.automaticallyFocusesSearch = automaticallyFocusesSearch
+        self.navigationTitle = navigationTitle
     }
 
     var body: some View {
@@ -32,7 +40,7 @@ struct SearchSubscriptionsView: View {
                     ContentUnavailableView.search(text: model.searchText)
                 }
             }
-            .navigationTitle("Search")
+            .navigationTitle(Text(navigationTitle))
             .navigationBarTitleDisplayMode(.inline)
             .searchable(text: $model.searchText, prompt: "Subscriptions")
             .searchFocused($isSearchFocused)
@@ -48,13 +56,16 @@ struct SearchSubscriptionsView: View {
             }
         }
         .task {
-            isSearchFocused = true
+            if automaticallyFocusesSearch {
+                isSearchFocused = true
+            }
         }
     }
 }
 
 private struct SearchSubscriptionRow: View {
-    @Environment(\.appCurrency) private var currency
+    @Environment(\.appHidesCents) private var hidesCents
+    @Environment(\.locale) private var locale
     let subscription: SubscriptionRecord
 
     var body: some View {
@@ -62,14 +73,14 @@ private struct SearchSubscriptionRow: View {
             ServiceLogo(service: subscription.service, size: 40)
             VStack(alignment: .leading, spacing: 2) {
                 Text(subscription.name)
-                    .font(.nunito(.headline, weight: .semibold))
-                Text("\(subscription.schedule.rawValue) · \(subscription.category.rawValue)")
-                    .font(.nunito(.subheadline))
+                    .appFont(.headline, weight: .semibold)
+                Text(verbatim: "\(subscription.schedule.localizedTitle(locale: locale)) · \(subscription.category.localizedTitle(locale: locale))")
+                    .appFont(.subheadline)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text(currency.formatted(subscription.amount))
-                .font(.nunito(.body, weight: .medium))
+            Text(subscription.currency.formatted(subscription.amount, hidesCents: hidesCents))
+                .appFont(.body, weight: .medium)
                 .monospacedDigit()
         }
         .accessibilityElement(children: .combine)

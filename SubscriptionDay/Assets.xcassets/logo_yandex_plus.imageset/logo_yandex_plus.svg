@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <defs>
+    <linearGradient id="yandexPlusGradient" gradientUnits="userSpaceOnUse" x1="0" y1="500" x2="1000" y2="500">
+      <stop offset="0" stop-color="#FF5C4D"/>
+      <stop offset="0.4" stop-color="#EB469F"/>
+      <stop offset="1" stop-color="#8341EF"/>
+    </linearGradient>
+  </defs>
+  <path fill-rule="evenodd" clip-rule="evenodd" fill="url(#yandexPlusGradient)" d="M540,800l97.5-300H1000c0,132.6075-52.6776,259.785-146.4474,353.5526C759.785,947.3224,632.6075,1000,500,1000S240.214,947.3224,146.4458,853.5526C52.6775,759.785,0,632.6075,0,500S52.6775,240.2148,146.4458,146.4465C240.214,52.6785,367.3925,0,500,0c52.46,0,104.5975,8.239,154.5,24.4167L540.585,375H207.8327l-40.6655,125H500l-97.5,300H540zM678.085,375L773.5,81.5003C877.8475,149.6777,953,254.3375,984.25,375H678.085z"/>
+</svg>

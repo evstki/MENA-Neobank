@@ -2,19 +2,15 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     let showsDoneButton: Bool
-    @AppStorage("subscription-day.rounding") private var rounding = true
-    @AppStorage("subscription-day.abbreviate-large-numbers") private var abbreviateLargeNumbers = true
-    @AppStorage("subscription-day.haptic-feedback") private var hapticFeedback = true
-    @AppStorage("subscription-day.language") private var language = "Auto"
-    @AppStorage("subscription-day.appearance") private var appearance: AppAppearance = .system
+    @AppStorage("subscription-day.language") private var language: AppLanguage = .system
     @AppStorage("subscription-day.accent-color") private var accentColor: AppAccentColor = .blue
     @AppStorage("subscription-day.main-currency") private var mainCurrency: AppCurrency = .usd
-    @AppStorage("subscription-day.reminders-enabled") private var remindersEnabled = false
-    @AppStorage("subscription-day.first-reminder") private var reminder = "1 Day"
-    @State private var reminderTime = Date.now
-    @State private var alertMessage: String?
+    @AppStorage("subscription-day.haptic-feedback") private var hapticFeedback = true
+    @AppStorage("subscription-day.face-id-enabled") private var faceIDEnabled = true
+    @AppStorage("subscription-day.bank-notifications-enabled") private var notificationsEnabled = true
+    @State private var alertMessage: LocalizedStringKey?
+    @ScaledMetric(relativeTo: .largeTitle) private var profileAvatarSize = 116.0
 
     init(showsDoneButton: Bool = true) {
         self.showsDoneButton = showsDoneButton
@@ -23,95 +19,120 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Notifications") {
-                    Toggle("Payment Reminder", isOn: $remindersEnabled)
-                        .tint(settingsPalette.toggleTint)
-                    if remindersEnabled {
-                        Picker("Reminder", selection: $reminder) {
-                            ForEach(["1 Day", "2 Days", "1 Week"], id: \.self, content: Text.init)
-                        }
-                        DatePicker("Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                        Button("Test Notification", systemImage: "bell.badge") {
-                            alertMessage = "Test notification scheduled."
-                        }
-                    }
+                Section {
+                    ProfileHeader(avatarSize: profileAvatarSize)
                 }
-                .animation(.default, value: remindersEnabled)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+
+                Section("Personal") {
+                    profileButton("Personal details", systemImage: "person.text.rectangle")
+                    profileButton("Contact details", systemImage: "at")
+                    profileButton(
+                        "Identity verification",
+                        systemImage: "checkmark.shield.fill",
+                        detail: "Verified",
+                        detailColor: .green
+                    )
+                }
                 .appThemedSurfaceRow()
 
-                Section("Appearance") {
-                    Picker("Appearance", selection: $appearance) {
-                        ForEach(AppAppearance.allCases) { option in
-                            Text(option.title).tag(option)
-                        }
+                Section("Banking") {
+                    profileButton("Accounts and balances", systemImage: "wallet.bifold")
+                    profileButton("Statements and documents", systemImage: "doc.text")
+                    profileButton("Transfer limits", systemImage: "gauge.with.dots.needle.67percent")
+                }
+                .appThemedSurfaceRow()
+
+                Section("Security") {
+                    Toggle(isOn: $faceIDEnabled) {
+                        ProfileSettingLabel("Face ID", systemImage: "faceid")
                     }
-                    .pickerStyle(.segmented)
-                    Picker("Accent Color", selection: $accentColor) {
+                    .tint(settingsPalette.toggleTint)
+
+                    profileButton("Security and privacy", systemImage: "lock.shield")
+                    profileButton("Devices", systemImage: "iphone.gen3")
+                }
+                .appThemedSurfaceRow()
+
+                Section("Preferences") {
+                    Picker(selection: $mainCurrency) {
+                        ForEach(AppCurrency.allCases) { currency in
+                            Text(currency.rawValue).tag(currency)
+                        }
+                    } label: {
+                        ProfileSettingLabel("Main Currency", systemImage: "banknote")
+                    }
+
+                    Picker(selection: $language) {
+                        ForEach(AppLanguage.allCases) { option in
+                            Text(option.titleKey).tag(option)
+                        }
+                    } label: {
+                        ProfileSettingLabel("Language", systemImage: "character.bubble")
+                    }
+
+                    Picker(selection: $accentColor) {
                         ForEach(AppAccentColor.allCases) { option in
                             Label {
-                                Text(option.title)
+                                Text(LocalizedStringKey(option.title))
                             } icon: {
                                 Image(uiImage: option.swatchImage)
                                     .renderingMode(.original)
                             }
-                                .tag(option)
+                            .tag(option)
                         }
+                    } label: {
+                        ProfileSettingLabel("Accent Color", systemImage: "paintpalette")
                     }
+
+                    Toggle(isOn: $hapticFeedback) {
+                        ProfileSettingLabel("Haptic Feedback", systemImage: "waveform")
+                    }
+                    .tint(settingsPalette.toggleTint)
                 }
                 .appThemedSurfaceRow()
 
-                Section("Interface") {
-                    Picker("Main Currency", selection: $mainCurrency) {
-                        ForEach(AppCurrency.allCases) { currency in
-                            Text(currency.rawValue).tag(currency)
-                        }
+                Section("Notifications") {
+                    Toggle(isOn: $notificationsEnabled) {
+                        ProfileSettingLabel("Push notifications", systemImage: "bell.badge")
                     }
-                    Toggle("Rounding", isOn: $rounding)
-                        .tint(settingsPalette.toggleTint)
-                    Toggle("Abbreviate Large Numbers", isOn: $abbreviateLargeNumbers)
-                        .tint(settingsPalette.toggleTint)
-                    Picker("Language", selection: $language) {
-                        ForEach(["Auto", "English", "Русский"], id: \.self, content: Text.init)
-                    }
-                    Toggle("Haptic Feedback", isOn: $hapticFeedback)
-                        .tint(settingsPalette.toggleTint)
-                }
-                .appThemedSurfaceRow()
-
-                Section {
-                    LabeledContent("Last Update") {
-                        Text(Date.now, format: .dateTime.month(.abbreviated).day().hour().minute())
-                    }
-                    Button("Update Now", systemImage: "arrow.clockwise") {
-                        alertMessage = "Currency rates are already up to date."
-                    }
-                } header: {
-                    Text("Currency Rates")
-                } footer: {
-                    Text("Currency rates are approximate and may differ from rates offered by your bank.")
+                    .tint(settingsPalette.toggleTint)
                 }
                 .appThemedSurfaceRow()
 
                 Section("Support") {
-                    Button("Rate & Review", systemImage: "star.bubble") {
-                        alertMessage = "App Store review page is ready to connect."
-                    }
-                    Button("Contact", systemImage: "envelope") {
-                        alertMessage = "Contact form is ready to connect."
-                    }
-                    ShareLink(
-                        item: URL(string: "https://example.com/subscription-day")!,
-                        subject: Text("Subscription Day"),
-                        message: Text("Track subscriptions with Subscription Day.")
-                    ) {
-                        Label("Share with a Friend", systemImage: "square.and.arrow.up")
+                    profileButton("Help center", systemImage: "questionmark.circle")
+                    profileButton("Contact support", systemImage: "message")
+                    profileButton("Legal and privacy", systemImage: "doc.badge.gearshape")
+                }
+                .appThemedSurfaceRow()
+
+                Section {
+                    Button(role: .destructive) {
+                        alertMessage = "Sign out is ready to connect."
+                    } label: {
+                        ProfileSettingLabel(
+                            "Sign out",
+                            systemImage: "rectangle.portrait.and.arrow.right",
+                            iconColor: .red,
+                            titleColor: .red
+                        )
                     }
                 }
                 .appThemedSurfaceRow()
             }
             .id(accentColor)
-            .appThemedScreenBackground()
-            .navigationTitle("Settings")
+            .contentMargins(.top, 0, for: .scrollContent)
+            .scrollContentBackground(.hidden)
+            .background {
+                ZStack(alignment: .top) {
+                    settingsPalette.background
+                    ProfileTopBackdrop()
+                }
+                .ignoresSafeArea()
+            }
+            .navigationTitle(AppLocalization.string("Profile", locale: language.locale))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if showsDoneButton {
@@ -123,7 +144,7 @@ struct SettingsView: View {
         }
         .environment(\.appThemePalette, settingsPalette)
         .tint(settingsPalette.accent)
-        .alert("Subscription Day", isPresented: Binding(
+        .alert("Profile", isPresented: Binding(
             get: { alertMessage != nil },
             set: { if !$0 { alertMessage = nil } }
         )) {
@@ -134,11 +155,151 @@ struct SettingsView: View {
     }
 
     private var settingsPalette: AppThemePalette {
-        AppThemePalette(accent: accentColor, colorScheme: colorScheme)
+        AppThemePalette(accent: accentColor)
+    }
+
+    private func profileButton(
+        _ title: LocalizedStringKey,
+        systemImage: String,
+        detail: LocalizedStringKey? = nil,
+        detailColor: Color = .secondary
+    ) -> some View {
+        Button {
+            alertMessage = "This profile option is ready to connect."
+        } label: {
+            ProfileNavigationLabel(
+                title,
+                systemImage: systemImage,
+                detail: detail,
+                detailColor: detailColor
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct ProfileTopBackdrop: View {
+    var body: some View {
+        Image(decorative: "profile_kirill")
+            .resizable()
+            .scaledToFill()
+            .frame(maxWidth: .infinity)
+            .frame(height: 340)
+            .scaleEffect(1.25)
+            .blur(radius: 56, opaque: true)
+            .overlay(.black.opacity(0.45))
+            .opacity(0.42)
+            .mask {
+                LinearGradient(
+                    colors: [.black, .black.opacity(0.8), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .clipped()
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct ProfileHeader: View {
+    let avatarSize: CGFloat
+
+    var body: some View {
+        VStack(spacing: 12) {
+            ProfileAvatar(size: avatarSize)
+                .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
+
+            Text(verbatim: "Kirill E")
+                .appFont(size: 32, weight: .bold, relativeTo: .largeTitle)
+
+            Text("Personal account")
+                .appFont(.body, weight: .medium)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, 20)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+private struct ProfileSettingLabel: View {
+    @Environment(\.appThemePalette) private var palette
+    let title: LocalizedStringKey
+    let systemImage: String
+    let iconColor: Color?
+    let titleColor: Color
+
+    init(
+        _ title: LocalizedStringKey,
+        systemImage: String,
+        iconColor: Color? = nil,
+        titleColor: Color = .primary
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.iconColor = iconColor
+        self.titleColor = titleColor
+    }
+
+    var body: some View {
+        Label {
+            Text(title)
+                .appFont(.body, weight: .medium)
+                .foregroundStyle(titleColor)
+        } icon: {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(resolvedIconColor)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var resolvedIconColor: Color {
+        iconColor ?? palette.accent
+    }
+}
+
+private struct ProfileNavigationLabel: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+    let detail: LocalizedStringKey?
+    let detailColor: Color
+
+    init(
+        _ title: LocalizedStringKey,
+        systemImage: String,
+        detail: LocalizedStringKey? = nil,
+        detailColor: Color = .secondary
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.detail = detail
+        self.detailColor = detailColor
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ProfileSettingLabel(title, systemImage: systemImage)
+
+            Spacer(minLength: 8)
+
+            if let detail {
+                Text(detail)
+                    .appFont(.subheadline, weight: .semibold)
+                    .foregroundStyle(detailColor)
+            }
+
+            Image(systemName: "chevron.forward")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
+        }
+        .contentShape(.rect)
     }
 }
 
 #Preview {
     SettingsView()
-        .environment(AppModel())
 }

@@ -4,21 +4,28 @@ import StoreKit
 struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.appAccentColor) private var accentColor
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.requestReview) private var requestReview
     @AppStorage("subscription-day.has-requested-review") private var hasRequestedReview = false
-    @State private var selectedTab: AppTab = .subscriptions
+    @State private var selectedTab: AppTab = .overview
 
     var body: some View {
         @Bindable var model = model
 
         TabView(selection: $selectedTab) {
-            Tab("Overview", systemImage: "calendar", value: .subscriptions) {
-                HomeView()
+            Tab("Overview", systemImage: "house.fill", value: .overview) {
+                BankView()
             }
 
-            Tab("Analytics", systemImage: "chart.bar.xaxis", value: .analytics) {
-                AnalyticsView(showsDoneButton: false)
+            Tab("Products", systemImage: "creditcard.fill", value: .products) {
+                ProductsView()
+            }
+
+            Tab("Services", systemImage: "rectangle.grid.2x2.fill", value: .pay) {
+                PayView()
+            }
+
+            Tab("Savings", systemImage: "chart.bar.xaxis", value: .grow) {
+                GrowView()
             }
 
             Tab(value: .add, role: .search) {
@@ -45,12 +52,10 @@ struct ContentView: View {
                     .presentationDetents([.height(model.daySubscriptionsSheetHeight)])
                     .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $model.showingSubscriptionDetail) {
-            if let subscriptionID = model.selectedSubscriptionID {
-                SubscriptionDetailView(subscriptionID: subscriptionID)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-            }
+        .sheet(item: $model.editingSubscription) { subscription in
+            EditSubscriptionView(subscription: subscription)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .environment(\.appThemePalette, palette)
         .tint(palette.accent)
@@ -58,7 +63,7 @@ struct ContentView: View {
 
     private func handleTabChange(_ oldTab: AppTab, _ newTab: AppTab) {
         guard newTab == .add else { return }
-        selectedTab = oldTab == .add ? .subscriptions : oldTab
+        selectedTab = oldTab == .add ? .overview : oldTab
         presentCatalog()
     }
 
@@ -84,13 +89,15 @@ struct ContentView: View {
     }
 
     private var palette: AppThemePalette {
-        AppThemePalette(accent: accentColor, colorScheme: colorScheme)
+        AppThemePalette(accent: accentColor)
     }
 }
 
 private enum AppTab: Hashable {
-    case subscriptions
-    case analytics
+    case overview
+    case pay
+    case products
+    case grow
     case add
 }
 

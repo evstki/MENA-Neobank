@@ -2,32 +2,50 @@ import CoreText
 import Foundation
 import SwiftUI
 
-enum SDFonts {
-    static let nunitoFamily = "Nunito"
+enum AppFonts {
+    private static let satoshiFamily = "Satoshi"
+    private static let rubikFamily = "Rubik"
+    private static let bundledFonts = [
+        ("Satoshi-Light", "otf"),
+        ("Satoshi-Regular", "otf"),
+        ("Satoshi-Medium", "otf"),
+        ("Satoshi-Bold", "otf"),
+        ("Satoshi-Black", "otf"),
+        ("Rubik-Variable", "ttf")
+    ]
 
     static func registerBundledFonts() {
-        guard let fontURL = Bundle.main.url(forResource: "Nunito-Variable", withExtension: "ttf") else {
-            return
-        }
+        for (name, fileExtension) in bundledFonts {
+            guard let fontURL = Bundle.main.url(forResource: name, withExtension: fileExtension) else {
+                assertionFailure("Missing bundled font: \(name).\(fileExtension)")
+                continue
+            }
 
-        CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, nil)
+            CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, nil)
+        }
     }
 
-    static func nunito(
+    static func font(
         _ style: Font.TextStyle = .body,
-        weight: Font.Weight = .regular
+        weight: Font.Weight = .regular,
+        locale: Locale
     ) -> Font {
-        .custom(nunitoFamily, size: baseSize(for: style), relativeTo: style)
+        .custom(family(for: locale), size: baseSize(for: style), relativeTo: style)
             .weight(weight)
     }
 
-    static func nunito(
+    static func font(
         size: CGFloat,
         weight: Font.Weight = .regular,
-        relativeTo style: Font.TextStyle = .body
+        relativeTo style: Font.TextStyle = .body,
+        locale: Locale
     ) -> Font {
-        .custom(nunitoFamily, size: size, relativeTo: style)
+        .custom(family(for: locale), size: size, relativeTo: style)
             .weight(weight)
+    }
+
+    private static func family(for locale: Locale) -> String {
+        locale.language.languageCode?.identifier == "ar" ? rubikFamily : satoshiFamily
     }
 
     private static func baseSize(for style: Font.TextStyle) -> CGFloat {
@@ -47,19 +65,34 @@ enum SDFonts {
     }
 }
 
-extension Font {
-    static func nunito(
-        _ style: TextStyle = .body,
-        weight: Weight = .regular
-    ) -> Font {
-        SDFonts.nunito(style, weight: weight)
+private struct AppFontModifier: ViewModifier {
+    @Environment(\.locale) private var locale
+    let style: Font.TextStyle
+    let weight: Font.Weight
+    let size: CGFloat?
+
+    func body(content: Content) -> some View {
+        if let size {
+            content.font(AppFonts.font(size: size, weight: weight, relativeTo: style, locale: locale))
+        } else {
+            content.font(AppFonts.font(style, weight: weight, locale: locale))
+        }
+    }
+}
+
+extension View {
+    func appFont(
+        _ style: Font.TextStyle = .body,
+        weight: Font.Weight = .regular
+    ) -> some View {
+        modifier(AppFontModifier(style: style, weight: weight, size: nil))
     }
 
-    static func nunito(
+    func appFont(
         size: CGFloat,
-        weight: Weight = .regular,
-        relativeTo style: TextStyle = .body
-    ) -> Font {
-        SDFonts.nunito(size: size, weight: weight, relativeTo: style)
+        weight: Font.Weight = .regular,
+        relativeTo style: Font.TextStyle = .body
+    ) -> some View {
+        modifier(AppFontModifier(style: style, weight: weight, size: size))
     }
 }

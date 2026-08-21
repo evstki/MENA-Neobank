@@ -1,7 +1,8 @@
 import SwiftUI
 
-enum AppCurrency: String, CaseIterable, Identifiable {
+enum AppCurrency: String, CaseIterable, Identifiable, Codable {
     case usd = "USD"
+    case aed = "AED"
     case eur = "EUR"
     case gbp = "GBP"
     case jpy = "JPY"
@@ -14,11 +15,14 @@ enum AppCurrency: String, CaseIterable, Identifiable {
     case rub = "RUB"
     case brl = "BRL"
 
+    static let allCases: [AppCurrency] = [.usd, .aed]
+
     var id: Self { self }
 
     var symbol: String {
         switch self {
         case .usd, .cad, .aud: "$"
+        case .aed: "AED"
         case .eur: "€"
         case .gbp: "£"
         case .jpy, .cny: "¥"
@@ -30,37 +34,40 @@ enum AppCurrency: String, CaseIterable, Identifiable {
         }
     }
 
-    func formatted(_ amount: Double) -> String {
-        let fractionDigits = amount.rounded() == amount ? 0 : 2
+    func formatted(_ amount: Double, hidesCents: Bool) -> String {
+        let fractionDigits = hidesCents || amount.rounded() == amount ? 0 : 2
         let style = FloatingPointFormatStyle<Double>()
             .grouping(.automatic)
             .precision(.fractionLength(fractionDigits))
         let number = abs(amount).formatted(style)
         let sign = amount < 0 ? "-" : ""
+        if self == .aed {
+            return "\(sign)\(number)\u{00A0}\(symbol)"
+        }
         return "\(sign)\(symbol)\(number)"
     }
-}
 
-enum AppAppearance: String, CaseIterable, Identifiable {
-    case system = "Auto"
-    case light = "Light"
-    case dark = "Dark"
-
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .system: "System"
-        case .light: "Light"
-        case .dark: "Dark"
-        }
+    func converted(_ amount: Double, to targetCurrency: AppCurrency) -> Double {
+        guard self != targetCurrency else { return amount }
+        let amountInUSD = amount / unitsPerUSDDollar
+        return amountInUSD * targetCurrency.unitsPerUSDDollar
     }
 
-    var colorScheme: ColorScheme? {
+    private var unitsPerUSDDollar: Double {
         switch self {
-        case .system: nil
-        case .light: .light
-        case .dark: .dark
+        case .usd: 1.00
+        case .aed: 3.6725
+        case .eur: 0.92
+        case .gbp: 0.79
+        case .jpy: 150.0
+        case .cny: 7.25
+        case .chf: 0.88
+        case .cad: 1.36
+        case .aud: 1.53
+        case .inr: 83.5
+        case .krw: 1_330.0
+        case .rub: 90.0
+        case .brl: 5.00
         }
     }
 }
@@ -88,11 +95,6 @@ enum AppAccentColor: String, CaseIterable, Identifiable {
         return renderer.image { context in
             context.cgContext.setFillColor(uiColor.cgColor)
             context.cgContext.fillEllipse(in: CGRect(x: 1, y: 1, width: 14, height: 14))
-            if self == .white {
-                context.cgContext.setStrokeColor(UIColor.systemGray3.cgColor)
-                context.cgContext.setLineWidth(1)
-                context.cgContext.strokeEllipse(in: CGRect(x: 1.5, y: 1.5, width: 13, height: 13))
-            }
         }
         .withRenderingMode(.alwaysOriginal)
     }
@@ -105,21 +107,10 @@ enum AppAccentColor: String, CaseIterable, Identifiable {
         case .orange: ThemeRGB(0.95, 0.52, 0.20)
         case .green: ThemeRGB(0.27, 0.70, 0.42)
         case .teal: ThemeRGB(0.18, 0.65, 0.70)
-        case .white: ThemeRGB(1.00, 1.00, 1.00)
+        case .white: ThemeRGB(0.96, 0.96, 0.98)
         }
     }
 
-    fileprivate var lightModeAccentRGB: ThemeRGB {
-        switch self {
-        case .blue: ThemeRGB(0.329, 0.433, 0.866)
-        case .purple: ThemeRGB(0.556, 0.359, 0.852)
-        case .pink: ThemeRGB(0.789, 0.266, 0.532)
-        case .orange: ThemeRGB(0.700, 0.383, 0.147)
-        case .green: ThemeRGB(0.203, 0.525, 0.315)
-        case .teal: ThemeRGB(0.142, 0.511, 0.550)
-        case .white: ThemeRGB(0.22, 0.23, 0.27)
-        }
-    }
 }
 
 private struct ThemeRGB {
@@ -146,49 +137,31 @@ private struct ThemeRGB {
 
 struct AppThemePalette {
     let accent: Color
+    let accentForeground: Color
     let toggleTint: Color
     let background: Color
     let surface: Color
     let elevatedSurface: Color
     let selectedSurface: Color
 
-    init(accent: AppAccentColor, colorScheme: ColorScheme) {
+    init(accent: AppAccentColor) {
         let accentRGB = accent.baseRGB
+        let backgroundRGB = ThemeRGB(8.0 / 255.0, 11.0 / 255.0, 22.0 / 255.0)
+            .mixed(with: accentRGB, amount: 0.07)
+            .mixed(with: ThemeRGB(0, 0, 0), amount: 0.4375)
+        let surfaceRGB = ThemeRGB(0.11, 0.115, 0.15)
+            .mixed(with: accentRGB, amount: 0.11)
+            .mixed(with: ThemeRGB(0, 0, 0), amount: 0.10)
+        let elevatedRGB = ThemeRGB(0.16, 0.165, 0.20)
+            .mixed(with: accentRGB, amount: 0.14)
 
-        switch colorScheme {
-        case .dark:
-            let backgroundRGB = ThemeRGB(8.0 / 255.0, 11.0 / 255.0, 22.0 / 255.0)
-                .mixed(with: accentRGB, amount: 0.07)
-                .mixed(with: ThemeRGB(0, 0, 0), amount: 0.4375)
-            let surfaceRGB = ThemeRGB(0.11, 0.115, 0.15)
-                .mixed(with: accentRGB, amount: 0.11)
-            let elevatedRGB = ThemeRGB(0.16, 0.165, 0.20)
-                .mixed(with: accentRGB, amount: 0.14)
-
-            self.accent = accentRGB.color
-            toggleTint = accent == .white
-                ? ThemeRGB(0.42, 0.44, 0.50).color
-                : accentRGB.color
-            background = backgroundRGB.color
-            surface = surfaceRGB.color
-            elevatedSurface = elevatedRGB.color
-            selectedSurface = surfaceRGB.mixed(with: accentRGB, amount: 0.24).color
-
-        default:
-            let backgroundRGB = ThemeRGB(0.949, 0.949, 0.969)
-                .mixed(with: accentRGB, amount: 0.045)
-            let surfaceRGB = ThemeRGB(1, 1, 1)
-                .mixed(with: accentRGB, amount: 0.055)
-            let elevatedRGB = ThemeRGB(0.975, 0.975, 0.985)
-                .mixed(with: accentRGB, amount: 0.085)
-
-            self.accent = accent.lightModeAccentRGB.color
-            toggleTint = accent.lightModeAccentRGB.color
-            background = backgroundRGB.color
-            surface = surfaceRGB.color
-            elevatedSurface = elevatedRGB.color
-            selectedSurface = surfaceRGB.mixed(with: accentRGB, amount: 0.16).color
-        }
+        self.accent = accentRGB.color
+        accentForeground = accent == .white ? .black : .white
+        toggleTint = accent == .white ? ThemeRGB(0.58, 0.58, 0.62).color : accentRGB.color
+        background = backgroundRGB.color
+        surface = surfaceRGB.color
+        elevatedSurface = elevatedRGB.color
+        selectedSurface = surfaceRGB.mixed(with: accentRGB, amount: 0.24).color
     }
 }
 
@@ -198,6 +171,10 @@ private struct AppAccentColorKey: EnvironmentKey {
 
 private struct AppCurrencyKey: EnvironmentKey {
     static let defaultValue = AppCurrency.usd
+}
+
+private struct AppHidesCentsKey: EnvironmentKey {
+    static let defaultValue = true
 }
 
 extension EnvironmentValues {
@@ -210,10 +187,15 @@ extension EnvironmentValues {
         get { self[AppCurrencyKey.self] }
         set { self[AppCurrencyKey.self] = newValue }
     }
+
+    var appHidesCents: Bool {
+        get { self[AppHidesCentsKey.self] }
+        set { self[AppHidesCentsKey.self] = newValue }
+    }
 }
 
 private struct AppThemePaletteKey: EnvironmentKey {
-    static let defaultValue = AppThemePalette(accent: .blue, colorScheme: .light)
+    static let defaultValue = AppThemePalette(accent: .blue)
 }
 
 extension EnvironmentValues {
@@ -239,19 +221,37 @@ enum SDTheme {
     static let chartBlue = Color(red: 0.10, green: 0.56, blue: 0.81)
 }
 
-extension Font {
-    static func sdRounded(_ size: CGFloat, weight: Weight = .regular) -> Font {
-        .nunito(size: size, weight: weight)
+private struct AppFloatingSurfaceModifier: ViewModifier {
+    @Environment(\.appThemePalette) private var palette
+    let radius: CGFloat
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content
+                .compositingGroup()
+                .clipShape(.rect(cornerRadius: radius))
+                .glassEffect(
+                    .regular.tint(palette.surface).interactive(),
+                    in: .rect(cornerRadius: radius)
+                )
+        } else {
+            content.background(palette.surface, in: .rect(cornerRadius: radius))
+        }
     }
 }
 
 extension View {
+    func appFloatingSurface(radius: CGFloat) -> some View {
+        modifier(AppFloatingSurfaceModifier(radius: radius))
+    }
+
     func appThemedScreenBackground() -> some View {
         modifier(AppThemedScreenBackgroundModifier())
     }
 
-    func appThemedSurfaceRow() -> some View {
-        modifier(AppThemedSurfaceRowModifier())
+    func appThemedSurfaceRow(opacity: Double = 1) -> some View {
+        modifier(AppThemedSurfaceRowModifier(opacity: opacity))
     }
 
     func sdPanel(radius: CGFloat = 10) -> some View {
@@ -278,9 +278,10 @@ private struct AppThemedScreenBackgroundModifier: ViewModifier {
 
 private struct AppThemedSurfaceRowModifier: ViewModifier {
     @Environment(\.appThemePalette) private var palette
+    let opacity: Double
 
     func body(content: Content) -> some View {
-        content.listRowBackground(palette.surface)
+        content.listRowBackground(palette.surface.opacity(opacity))
     }
 }
 

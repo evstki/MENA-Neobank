@@ -46,19 +46,44 @@ struct AnimatedBlurBackground: View {
     }
 }
 
-struct HomeAnimatedBackdrop: View {
+struct AppScreenBackdrop: View {
     @Environment(\.appThemePalette) private var palette
+    private let accentColorOverride: Color?
+
+    init(accentColor: Color? = nil) {
+        accentColorOverride = accentColor
+    }
+
+    var body: some View {
+        ZStack {
+            palette.background
+            AppTopAnimatedBackdrop(accentColor: accentColorOverride)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+struct AppTopAnimatedBackdrop: View {
+    @Environment(\.appAccentColor) private var accentColor
+    private let accentColorOverride: Color?
+
+    init(accentColor: Color? = nil) {
+        accentColorOverride = accentColor
+    }
 
     var body: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
-                AnimatedBlurBackground(accentColor: palette.accent)
+                AnimatedBlurBackground(accentColor: accentColorOverride ?? accentColor.color)
                     .frame(height: geometry.size.height * 0.54)
                     .mask {
                         LinearGradient(
                             stops: [
                                 .init(color: .white, location: 0),
-                                .init(color: .white, location: 0.74),
+                                .init(color: .white, location: 0.56),
+                                .init(color: .white.opacity(0.55), location: 0.78),
                                 .init(color: .clear, location: 1)
                             ],
                             startPoint: .top,

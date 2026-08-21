@@ -6,6 +6,8 @@ struct HomeView: View {
     @State private var showingSettings = false
     @State private var returnFromMonth: Date?
     @State private var returnSlideOffset: CGFloat = 0
+    @State private var adjacentMonthTransition: AdjacentMonthTransition?
+    @State private var adjacentMonthSlideOffset: CGFloat = 0
 
     private static let availableMonths: [Date] = {
         let anchor = AppModel.makeDate(year: 2026, month: 1, day: 1)
@@ -17,31 +19,67 @@ struct HomeView: View {
 
         NavigationStack {
             ZStack {
-                palette.background.ignoresSafeArea()
-                HomeAnimatedBackdrop()
+                AppScreenBackdrop()
 
                 GeometryReader { proxy in
                     TabView(selection: $model.selectedMonth) {
                         ForEach(Self.availableMonths, id: \.self) { month in
                             MonthPage(month: month) {
                                 returnToCurrentMonth(from: month, pageWidth: proxy.size.width)
+                            } onSelectAdjacentMonth: { adjacentMonth in
+                                navigateToMonth(
+                                    adjacentMonth,
+                                    from: month,
+                                    pageWidth: proxy.size.width
+                                )
                             }
                             .tag(month)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .never))
-                    .opacity(returnFromMonth == nil ? 1 : 0)
-                    .allowsHitTesting(returnFromMonth == nil)
+                    .opacity(returnFromMonth == nil && adjacentMonthTransition == nil ? 1 : 0)
+                    .allowsHitTesting(returnFromMonth == nil && adjacentMonthTransition == nil)
 
                     if let returnFromMonth {
                         let travel = returnFromMonth < currentMonth ? -proxy.size.width : proxy.size.width
 
                         ZStack {
-                            MonthPage(month: returnFromMonth, onReturnToCurrentMonth: {})
+                            MonthPage(
+                                month: returnFromMonth,
+                                onReturnToCurrentMonth: {},
+                                onSelectAdjacentMonth: { _ in }
+                            )
                                 .offset(x: returnSlideOffset)
 
-                            MonthPage(month: currentMonth, onReturnToCurrentMonth: {})
+                            MonthPage(
+                                month: currentMonth,
+                                onReturnToCurrentMonth: {},
+                                onSelectAdjacentMonth: { _ in }
+                            )
                                 .offset(x: returnSlideOffset - travel)
+                        }
+                        .clipped()
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                    } else if let adjacentMonthTransition {
+                        let travel = adjacentMonthTransition.to > adjacentMonthTransition.from
+                            ? proxy.size.width
+                            : -proxy.size.width
+
+                        ZStack {
+                            MonthPage(
+                                month: adjacentMonthTransition.from,
+                                onReturnToCurrentMonth: {},
+                                onSelectAdjacentMonth: { _ in }
+                            )
+                            .offset(x: adjacentMonthSlideOffset)
+
+                            MonthPage(
+                                month: adjacentMonthTransition.to,
+                                onReturnToCurrentMonth: {},
+                                onSelectAdjacentMonth: { _ in }
+                            )
+                            .offset(x: adjacentMonthSlideOffset + travel)
                         }
                         .clipped()
                         .allowsHitTesting(false)
@@ -52,9 +90,13 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Settings", systemImage: "gearshape") {
+                    Button {
                         showingSettings = true
+                    } label: {
+                        ProfileAvatar()
                     }
+                    .accessibilityLabel("Profile")
+                    .buttonBorderShape(.circle)
                     .tint(palette.accent)
                 }
 
@@ -108,19 +150,58 @@ struct HomeView: View {
             }
         }
     }
+
+    private func navigateToMonth(_ month: Date, from displayedMonth: Date, pageWidth: CGFloat) {
+        let destination = AppModel.monthStart(for: month)
+        guard returnFromMonth == nil,
+              adjacentMonthTransition == nil,
+              !AppModel.calendar.isDate(destination, equalTo: displayedMonth, toGranularity: .month),
+              pageWidth > 0 else {
+            return
+        }
+
+        let transition = AdjacentMonthTransition(from: displayedMonth, to: destination)
+        let travel = destination > displayedMonth ? -pageWidth : pageWidth
+        adjacentMonthTransition = transition
+        adjacentMonthSlideOffset = 0
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(20))
+            guard adjacentMonthTransition == transition else { return }
+
+            withAnimation(.spring(duration: 0.28, bounce: 0.10), completionCriteria: .removed) {
+                adjacentMonthSlideOffset = travel
+            } completion: {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    model.selectedMonth = destination
+                    adjacentMonthTransition = nil
+                    adjacentMonthSlideOffset = 0
+                }
+            }
+        }
+    }
+}
+
+private struct AdjacentMonthTransition: Equatable {
+    let from: Date
+    let to: Date
 }
 
 private struct MonthPage: View {
     let month: Date
     let onReturnToCurrentMonth: () -> Void
+    let onSelectAdjacentMonth: (Date) -> Void
 
     var body: some View {
         GeometryReader { proxy in
             VStack(spacing: 0) {
                 Spacer(minLength: 16)
                 MonthSummary(month: month, onReturnToCurrentMonth: onReturnToCurrentMonth)
+                    .offset(y: -20)
                 Spacer(minLength: 22)
-                MonthCalendar(month: month)
+                MonthCalendar(month: month, onSelectAdjacentMonth: onSelectAdjacentMonth)
                     .frame(height: min(378, proxy.size.height * 0.56))
                     .padding(.bottom, 6)
                 Spacer(minLength: 38)
@@ -133,19 +214,21 @@ private struct MonthSummary: View {
     @Environment(AppModel.self) private var model
     @Environment(\.appThemePalette) private var palette
     @Environment(\.appCurrency) private var currency
+    @Environment(\.appHidesCents) private var hidesCents
+    @Environment(\.locale) private var locale
     @ScaledMetric(relativeTo: .largeTitle) private var amountFontSize = 82.0
     let month: Date
     let onReturnToCurrentMonth: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 6) {
             VStack(spacing: 4) {
                 Text(month, format: .dateTime.month(.wide).year())
-                    .font(.nunito(.title3, weight: .semibold))
+                    .appFont(.title3, weight: .semibold)
                     .foregroundStyle(.secondary)
 
                 Text(amountText)
-                    .font(.nunito(size: amountFontSize, weight: .heavy, relativeTo: .largeTitle))
+                    .appFont(size: amountFontSize, weight: .heavy, relativeTo: .largeTitle)
                     .monospacedDigit()
                     .contentTransition(.numericText(countsDown: false))
                     .animation(.easeOut(duration: 0.28), value: totalAmount)
@@ -153,7 +236,12 @@ private struct MonthSummary: View {
                     .lineLimit(1)
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Monthly subscription total, \(amountText), for \(month.formatted(.dateTime.month(.wide).year())).")
+            .accessibilityLabel(AppLocalization.string(
+                "home.monthlyTotal.accessibility",
+                locale: locale,
+                arguments: amountText,
+                month.formatted(.dateTime.month(.wide).year().locale(locale))
+            ))
 
             nextPaymentBadge
         }
@@ -163,7 +251,11 @@ private struct MonthSummary: View {
     private var nextPaymentBadge: some View {
         let label = Group {
             if isCurrentMonth {
-                Label(nextPaymentSummary, systemImage: "calendar.badge.clock")
+                Label {
+                    Text(verbatim: nextPaymentSummary)
+                } icon: {
+                    Image(systemName: "calendar.badge.clock")
+                }
             } else {
                 HStack(spacing: 8) {
                     if !isPastMonth {
@@ -178,7 +270,7 @@ private struct MonthSummary: View {
                 }
             }
         }
-            .font(.nunito(.subheadline, weight: .semibold))
+            .appFont(.subheadline, weight: .semibold)
             .foregroundStyle(palette.accent)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
@@ -220,33 +312,42 @@ private struct MonthSummary: View {
     }
 
     private var amountText: String {
-        currency.formatted(totalAmount)
+        currency.formatted(totalAmount, hidesCents: hidesCents)
     }
 
     private var totalAmount: Double {
-        model.total(in: month)
+        model.total(in: month, convertedTo: currency)
     }
 
     private var nextPaymentTitle: String {
-        guard let payment = model.nextPayment() else { return "No upcoming payments" }
+        guard let payment = model.nextPayment(convertedTo: currency) else {
+            return AppLocalization.string("No upcoming payments", locale: locale)
+        }
         let today = AppModel.calendar.startOfDay(for: Date())
         let paymentDay = AppModel.calendar.startOfDay(for: payment.date)
         let days = AppModel.calendar.dateComponents([.day], from: today, to: paymentDay).day ?? 0
         switch days {
-        case 0: return "Next payment today"
-        case 1: return "Next payment tomorrow"
-        default: return "Next payment in \(days) days"
+        case 0: return AppLocalization.string("Next payment today", locale: locale)
+        case 1: return AppLocalization.string("Next payment tomorrow", locale: locale)
+        default: return AppLocalization.nextPayment(days: days, locale: locale)
         }
     }
 
     private var nextPaymentAmount: String {
-        guard let payment = model.nextPayment() else { return "Add a subscription to see it here" }
-        return currency.formatted(payment.amount)
+        guard let payment = model.nextPayment(convertedTo: currency) else {
+            return AppLocalization.string("Add a subscription to see it here", locale: locale)
+        }
+        return currency.formatted(payment.amount, hidesCents: hidesCents)
     }
 
     private var nextPaymentSummary: String {
-        guard model.nextPayment() != nil else { return nextPaymentTitle }
-        return "\(nextPaymentTitle) · \(nextPaymentAmount)"
+        guard model.nextPayment(convertedTo: currency) != nil else { return nextPaymentTitle }
+        return AppLocalization.string(
+            "%@ · %@",
+            locale: locale,
+            arguments: nextPaymentTitle,
+            nextPaymentAmount
+        )
     }
 }
 
@@ -260,8 +361,9 @@ private struct MonthReturnButtonStyle: ButtonStyle {
 }
 
 private struct MonthCalendar: View {
+    @Environment(\.locale) private var locale
     let month: Date
-    private let weekdayNames = ["S", "M", "T", "W", "T", "F", "S"]
+    let onSelectAdjacentMonth: (Date) -> Void
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 7)
 
     var body: some View {
@@ -269,24 +371,34 @@ private struct MonthCalendar: View {
             LazyVGrid(columns: columns, spacing: 0) {
                 ForEach(weekdayNames.enumerated(), id: \.offset) { _, name in
                     Text(name)
-                        .font(.nunito(.caption2, weight: .semibold))
+                        .appFont(.caption2, weight: .semibold)
                         .foregroundStyle(.tertiary)
                 }
             }
 
             LazyVGrid(columns: columns, spacing: 5) {
                 ForEach(days) { day in
-                    CalendarDayCell(day: day)
+                    CalendarDayCell(day: day, onSelectAdjacentMonth: onSelectAdjacentMonth)
                 }
             }
         }
         .padding(.horizontal, 20)
     }
 
+    private var weekdayNames: [String] {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        let weekdayNames = formatter.veryShortWeekdaySymbols ?? []
+        guard weekdayNames.count == 7 else { return weekdayNames }
+        let startIndex = firstWeekday - 1
+        return Array(weekdayNames[startIndex...] + weekdayNames[..<startIndex])
+    }
+
     private var days: [CalendarDate] {
         let calendar = AppModel.calendar
         let weekday = calendar.component(.weekday, from: month)
-        guard let firstVisibleDate = calendar.date(byAdding: .day, value: -(weekday - 1), to: month) else {
+        let leadingDays = (weekday - firstWeekday + 7) % 7
+        guard let firstVisibleDate = calendar.date(byAdding: .day, value: -leadingDays, to: month) else {
             return []
         }
 
@@ -299,6 +411,10 @@ private struct MonthCalendar: View {
                 isInDisplayedMonth: calendar.isDate(date, equalTo: month, toGranularity: .month)
             )
         }
+    }
+
+    private var firstWeekday: Int {
+        locale.language.languageCode?.identifier == "ru" ? 2 : 1
     }
 }
 
@@ -313,11 +429,23 @@ private struct CalendarDayCell: View {
     @Environment(AppModel.self) private var model
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.appThemePalette) private var palette
+    @Environment(\.locale) private var locale
     let day: CalendarDate
+    let onSelectAdjacentMonth: (Date) -> Void
 
     var body: some View {
         Button {
-            model.select(day: dayNumber, in: day.date)
+            guard day.isInDisplayedMonth else {
+                onSelectAdjacentMonth(day.date)
+                return
+            }
+
+            model.select(date: day.date)
+
+            Task { @MainActor in
+                await Task.yield()
+                model.presentSelectedDate()
+            }
         } label: {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(cellFill)
@@ -327,20 +455,23 @@ private struct CalendarDayCell: View {
                 .overlay(alignment: .bottomTrailing) {
                     if day.isInDisplayedMonth {
                         Text("\(dayNumber)")
-                            .font(.nunito(size: 12, weight: .semibold, relativeTo: .caption2))
+                            .appFont(size: 11, weight: .semibold, relativeTo: .caption2)
                             .foregroundStyle(.secondary)
-                            .padding(6)
+                            .padding(5)
                     }
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(borderColor, lineWidth: isSelected ? 2.5 : 1)
+                        .strokeBorder(
+                            isToday ? palette.accent : .clear,
+                            lineWidth: 2.5
+                        )
                 }
-                .frame(height: 52)
+                .frame(height: 58)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityText)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAddTraits(isToday ? .isSelected : [])
     }
 
     private var dayNumber: Int {
@@ -351,80 +482,79 @@ private struct CalendarDayCell: View {
         model.subscriptions(on: day.date)
     }
 
-    private var isSelected: Bool {
-        AppModel.calendar.isDate(day.date, inSameDayAs: model.selectedDate)
+    private var isToday: Bool {
+        AppModel.calendar.isDateInToday(day.date)
     }
 
     @ViewBuilder
     private var subscriptionIndicator: some View {
-        switch daySubscriptions.count {
-        case 1:
-            if let subscription = daySubscriptions.first {
-                ServiceLogo(service: subscription.service, size: 25)
-                    .offset(y: -4)
-            }
-
-        case 2:
-            HStack(spacing: -3) {
-                ForEach(daySubscriptions) { subscription in
-                    ServiceLogo(service: subscription.service, size: 20)
+        if day.isInDisplayedMonth {
+            switch daySubscriptions.count {
+            case 1:
+                if let subscription = daySubscriptions.first {
+                    ServiceLogo(service: subscription.service, size: 27)
                 }
-            }
-            .offset(y: -4)
 
-        case 3...4:
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.fixed(17), spacing: 0), count: 2),
-                spacing: 0
-            ) {
-                ForEach(daySubscriptions) { subscription in
-                    ServiceLogo(service: subscription.service, size: 17)
+            case 2:
+                HStack(spacing: -4) {
+                    ForEach(daySubscriptions) { subscription in
+                        ServiceLogo(service: subscription.service, size: 20)
+                    }
                 }
-            }
-            .frame(width: 34, height: 34)
-            .offset(x: -2, y: -4)
 
-        case 5...:
-            Text("\(daySubscriptions.count)")
-                .font(.nunito(.caption, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(.primary)
-                .frame(width: 28, height: 28)
-                .background(.thinMaterial, in: Circle())
-                .overlay {
-                    Circle().stroke(Color.white.opacity(0.20), lineWidth: 1)
+            case 3...4:
+                ZStack {
+                    ForEach(Array(daySubscriptions.enumerated()), id: \.element.id) { index, subscription in
+                        ServiceLogo(service: subscription.service, size: 18)
+                            .offset(
+                                x: index.isMultiple(of: 2) ? -7 : 7,
+                                y: index < 2 ? -7 : 7
+                            )
+                            .zIndex(Double(index))
+                    }
                 }
-                .offset(y: -4)
+                .frame(width: 32, height: 32)
 
-        default:
-            EmptyView()
+            case 5...:
+                Text("\(daySubscriptions.count)")
+                    .appFont(.caption, weight: .bold)
+                    .monospacedDigit()
+                    .foregroundStyle(.primary)
+                    .frame(width: 30, height: 30)
+                    .background(.thinMaterial, in: Circle())
+                    .overlay {
+                        Circle().stroke(Color.white.opacity(0.20), lineWidth: 1)
+                    }
+            default:
+                EmptyView()
+            }
         }
     }
 
     private var cellFill: Color {
+        guard day.isInDisplayedMonth else {
+            return palette.surface.opacity(colorScheme == .dark ? 0.44 : 0.46)
+        }
+
         if let subscription = daySubscriptions.first {
             return subscription.service.brandTint.opacity(colorScheme == .dark ? 0.48 : 0.25)
         }
 
-        if day.isInDisplayedMonth {
-            return palette.surface.opacity(colorScheme == .dark ? 0.92 : 0.88)
-        }
-
-        return palette.surface.opacity(colorScheme == .dark ? 0.44 : 0.46)
-    }
-
-    private var borderColor: Color {
-        if isSelected { return palette.accent }
-        if let subscription = daySubscriptions.first {
-            return subscription.service.brandTint.opacity(colorScheme == .dark ? 0.82 : 0.52)
-        }
-        return .clear
+        return palette.surface.opacity(colorScheme == .dark ? 0.92 : 0.88)
     }
 
     private var accessibilityText: String {
         let count = daySubscriptions.count
-        let dateText = day.date.formatted(.dateTime.day().month(.wide).year())
-        return count == 0 ? "\(dateText), no subscriptions" : "\(dateText), \(count) subscriptions"
+        let dateText = day.date.formatted(.dateTime.day().month(.wide).year().locale(locale))
+        let countText = count == 0
+            ? AppLocalization.string("calendar.noSubscriptions", locale: locale)
+            : AppLocalization.subscriptionCount(count, locale: locale)
+        return AppLocalization.string(
+            "calendar.day.accessibility",
+            locale: locale,
+            arguments: dateText,
+            countText
+        )
     }
 }
 
@@ -432,6 +562,7 @@ struct DaySubscriptionsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appCurrency) private var currency
+    @Environment(\.appHidesCents) private var hidesCents
 
     var body: some View {
         NavigationStack {
@@ -465,14 +596,17 @@ struct DaySubscriptionsView: View {
                 Section {
                     Button("Add Subscription", systemImage: "plus", action: addSubscription)
                     LabeledContent("Total") {
-                        Text(currency.formatted(dayTotal))
-                            .font(.nunito(.body, weight: .semibold))
+                        Text(currency.formatted(dayTotal, hidesCents: hidesCents))
+                            .appFont(.body, weight: .semibold)
                     }
                 }
                 .appThemedSurfaceRow()
             }
             .appThemedScreenBackground()
-            .navigationTitle(model.selectedDate.formatted(.dateTime.day().month(.wide).year()))
+            .navigationTitle(Text(
+                model.selectedDate,
+                format: .dateTime.day().month(.wide).year()
+            ))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -490,15 +624,14 @@ struct DaySubscriptionsView: View {
     }
 
     private var dayTotal: Double {
-        daySubscriptions.reduce(0) { $0 + $1.amount }
+        daySubscriptions.reduce(0) { $0 + $1.amount(convertedTo: currency) }
     }
 
     private func open(_ subscription: SubscriptionRecord) {
-        model.selectedSubscriptionID = subscription.id
         dismiss()
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(250))
-            model.showingSubscriptionDetail = true
+            model.editingSubscription = subscription
         }
     }
 
@@ -513,7 +646,8 @@ struct DaySubscriptionsView: View {
 }
 
 private struct SubscriptionRow: View {
-    @Environment(\.appCurrency) private var currency
+    @Environment(\.appHidesCents) private var hidesCents
+    @Environment(\.locale) private var locale
     let subscription: SubscriptionRecord
 
     var body: some View {
@@ -521,9 +655,9 @@ private struct SubscriptionRow: View {
             ServiceLogo(service: subscription.service, size: 42)
             VStack(alignment: .leading, spacing: 2) {
                 Text(subscription.name)
-                    .font(.nunito(.headline, weight: .semibold))
-                Text("\(subscription.schedule.rawValue) · \(currency.formatted(subscription.amount))")
-                    .font(.nunito(.subheadline))
+                    .appFont(.headline, weight: .semibold)
+                Text(verbatim: "\(subscription.schedule.localizedTitle(locale: locale)) · \(subscription.currency.formatted(subscription.amount, hidesCents: hidesCents))")
+                    .appFont(.subheadline)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -532,123 +666,6 @@ private struct SubscriptionRow: View {
                 .foregroundStyle(.tertiary)
         }
         .accessibilityElement(children: .combine)
-    }
-}
-
-struct SubscriptionDetailView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.appThemePalette) private var palette
-    @Environment(\.appCurrency) private var currency
-    let subscriptionID: UUID
-    @State private var showingEdit = false
-
-    var body: some View {
-        NavigationStack {
-            if let subscription {
-                Form {
-                    Section {
-                        VStack(spacing: 10) {
-                            ServiceLogo(service: subscription.service, size: 82)
-                                .shadow(color: subscription.service.brandTint.opacity(0.55), radius: 24)
-                            Text(subscription.name)
-                                .font(.nunito(.title2, weight: .bold))
-                            Text("\(subscription.schedule.rawValue) · \(currency.formatted(subscription.amount))")
-                                .foregroundStyle(.secondary)
-                            Label("Active", systemImage: "checkmark.circle.fill")
-                                .font(.nunito(.subheadline, weight: .medium))
-                                .foregroundStyle(.green)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                    }
-                    .appThemedSurfaceRow()
-
-                    Section("Billing") {
-                        LabeledContent("Amount", value: currency.formatted(subscription.amount))
-                        LabeledContent("Next Payment") {
-                            Text(subscription.startDate, format: .dateTime.day().month(.abbreviated).year())
-                        }
-                        LabeledContent("Notifications", value: subscription.notifications)
-                    }
-                    .appThemedSurfaceRow()
-
-                    Section("Organization") {
-                        LabeledContent("Category", value: subscription.category.rawValue)
-                        LabeledContent("List", value: subscription.listName)
-                        LabeledContent("Payment Method", value: subscription.paymentMethod)
-                    }
-                    .appThemedSurfaceRow()
-                }
-                .scrollContentBackground(.hidden)
-                .background {
-                    SubscriptionDetailBackdrop(tint: subscription.service.brandTint)
-                }
-                .tint(palette.accent)
-                .navigationTitle("Subscription")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { dismiss() }
-                    }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Edit") { showingEdit = true }
-                    }
-                }
-            } else {
-                ContentUnavailableView("Subscription Not Found", systemImage: "exclamationmark.triangle")
-            }
-        }
-        .sheet(isPresented: $showingEdit) {
-            if let subscription {
-                EditSubscriptionView(subscription: subscription)
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-            }
-        }
-        .onChange(of: model.selectedSubscriptionID) { _, newValue in
-            if newValue == nil { dismiss() }
-        }
-    }
-
-    private var subscription: SubscriptionRecord? {
-        model.subscription(id: subscriptionID)
-    }
-}
-
-private struct SubscriptionDetailBackdrop: View {
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.appThemePalette) private var palette
-    let tint: Color
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack {
-                palette.background
-
-                RadialGradient(
-                    colors: [
-                        tint.opacity(colorScheme == .dark ? 0.68 : 0.34),
-                        tint.opacity(colorScheme == .dark ? 0.28 : 0.14),
-                        .clear
-                    ],
-                    center: .top,
-                    startRadius: 8,
-                    endRadius: max(proxy.size.width, proxy.size.height) * 0.72
-                )
-                .scaleEffect(1.22)
-                .blur(radius: 30)
-
-                LinearGradient(
-                    colors: [.clear, palette.background.opacity(0.78)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
     }
 }
 
