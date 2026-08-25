@@ -5,7 +5,7 @@ struct BundledArtwork: View {
     let name: String
 
     private static let images: [String: UIImage] = [
-        "bitcoin", "card", "coin", "safe", "shield", "two cards", "wallet"
+        "bitcoin", "card", "coin", "plane", "safe", "shield", "two cards", "wallet"
     ].reduce(into: [:]) { images, name in
         guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
               let image = UIImage(contentsOfFile: url.path) else {
@@ -71,8 +71,48 @@ struct AppPageHeading: View {
     }
 }
 
+struct AppPageTitle: View {
+    let title: LocalizedStringKey
+
+    @State private var restingTitleMinY: CGFloat?
+    @State private var scrollOffset: CGFloat = 0
+    @State private var titleHeight: CGFloat = 44
+
+    var body: some View {
+        Text(title)
+            .appFont(.largeTitle, weight: .bold)
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .opacity(titleOpacity)
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.size.height
+            } action: { newHeight in
+                titleHeight = newHeight
+            }
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.frame(in: .global).minY
+            } action: { newMinY in
+                updateTitlePosition(newMinY)
+            }
+    }
+
+    private var titleOpacity: CGFloat {
+        1 - min(scrollOffset / max(titleHeight, 1), 1)
+    }
+
+    private func updateTitlePosition(_ minY: CGFloat) {
+        guard let restingTitleMinY else {
+            restingTitleMinY = minY
+            return
+        }
+        scrollOffset = max(restingTitleMinY - minY, 0)
+    }
+}
+
 struct AppNavigationTitleFontConfigurator: UIViewControllerRepresentable {
     @Environment(\.locale) private var locale
+    var hidesLargeTitle = true
+    var stylesBarButtons = false
 
     func makeUIViewController(context: Context) -> UIViewController {
         UIViewController()
@@ -85,16 +125,19 @@ struct AppNavigationTitleFontConfigurator: UIViewControllerRepresentable {
             guard let navigationBar = viewController.navigationController?.navigationBar else { return }
             let usesArabicFont = locale.language.languageCode?.identifier == "ar"
             let fontName = usesArabicFont ? "Rubik" : "Satoshi-Bold"
+            let buttonFontName = usesArabicFont ? "Rubik" : "Satoshi-Medium"
 
             let largeBaseFont = UIFont(name: fontName, size: 34)
                 ?? UIFont.systemFont(ofSize: 34, weight: .bold)
             let inlineBaseFont = UIFont(name: fontName, size: 17)
                 ?? UIFont.systemFont(ofSize: 17, weight: .bold)
+            let buttonBaseFont = UIFont(name: buttonFontName, size: 17)
+                ?? UIFont.systemFont(ofSize: 17, weight: .medium)
 
             var largeTitleAttributes = navigationBar.largeTitleTextAttributes ?? [:]
             largeTitleAttributes[.font] = UIFontMetrics(forTextStyle: .largeTitle)
                 .scaledFont(for: largeBaseFont)
-            largeTitleAttributes[.foregroundColor] = UIColor.clear
+            largeTitleAttributes[.foregroundColor] = hidesLargeTitle ? UIColor.clear : UIColor.label
             largeTitleAttributes.removeValue(forKey: .baselineOffset)
             navigationBar.largeTitleTextAttributes = largeTitleAttributes
 
@@ -106,9 +149,18 @@ struct AppNavigationTitleFontConfigurator: UIViewControllerRepresentable {
             func configuredAppearance(
                 from source: UINavigationBarAppearance
             ) -> UINavigationBarAppearance {
-                let appearance = source.copy() as? UINavigationBarAppearance ?? source
+                let appearance = UINavigationBarAppearance(barAppearance: source)
                 appearance.largeTitleTextAttributes = largeTitleAttributes
                 appearance.titleTextAttributes = titleAttributes
+                if stylesBarButtons {
+                    let buttonAttributes: [NSAttributedString.Key: Any] = [
+                        .font: UIFontMetrics(forTextStyle: .body).scaledFont(for: buttonBaseFont)
+                    ]
+                    let buttonAppearance = UIBarButtonItemAppearance(style: .plain)
+                    buttonAppearance.normal.titleTextAttributes = buttonAttributes
+                    appearance.buttonAppearance = buttonAppearance
+                    appearance.backButtonAppearance = buttonAppearance
+                }
                 return appearance
             }
 
@@ -189,13 +241,9 @@ private struct AppTopNavigationBarModifier: ViewModifier {
                     .sharedBackgroundVisibility(.hidden)
 
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Notifications", systemImage: "bell") {
-                            presentedSheet = .notifications
-                        }
-                        .badge(2)
-                        .accessibilityValue(Text("2 unread notifications"))
-                        .tint(palette.accent)
+                        notificationsButton
                     }
+                    .sharedBackgroundVisibility(.hidden)
 
                     ToolbarSpacer(.fixed, placement: .topBarTrailing)
 
@@ -222,6 +270,45 @@ private struct AppTopNavigationBarModifier: ViewModifier {
                 }
             }
     }
+
+    private var notificationsButton: some View {
+        Button {
+            presentedSheet = .notifications
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 40, height: 40)
+                    .overlay {
+                        Circle()
+                            .stroke(.white.opacity(0.12), lineWidth: 0.75)
+                    }
+
+                Image(systemName: "bell")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 40, height: 40)
+
+                ZStack {
+                    Circle()
+                        .fill(.red)
+
+                    Text(verbatim: "2")
+                        .font(.caption2.bold())
+                        .foregroundStyle(.white)
+                }
+                    .frame(width: 18, height: 18)
+                    .accessibilityHidden(true)
+            }
+            .frame(width: 44, height: 44)
+            .environment(\.layoutDirection, .leftToRight)
+        }
+        .buttonStyle(.plain)
+        .contentShape(.circle)
+        .accessibilityLabel("Notifications")
+        .accessibilityValue(Text("2 unread notifications"))
+        .tint(palette.accent)
+    }
 }
 
 extension View {
@@ -235,6 +322,83 @@ extension View {
             searchTitle: searchTitle,
             searchAction: searchAction
         ))
+    }
+}
+
+private struct AppTabBarVisibilityModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let isHidden: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                AppTabBarVisibilityBridge(
+                    isHidden: isHidden,
+                    animated: !reduceMotion
+                )
+                .frame(width: 0, height: 0)
+            }
+    }
+}
+
+private struct AppTabBarVisibilityBridge: UIViewControllerRepresentable {
+    let isHidden: Bool
+    let animated: Bool
+
+    func makeUIViewController(context: Context) -> Controller {
+        Controller(isHidden: isHidden)
+    }
+
+    func updateUIViewController(_ controller: Controller, context: Context) {
+        controller.setTabBarHidden(isHidden, animated: animated)
+    }
+
+    static func dismantleUIViewController(_ controller: Controller, coordinator: Void) {
+        controller.restoreTabBar()
+    }
+
+    final class Controller: UIViewController {
+        private var requestedHiddenState: Bool
+
+        init(isHidden: Bool) {
+            requestedHiddenState = isHidden
+            super.init(nibName: nil, bundle: nil)
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
+
+        override func viewDidAppear(_ animated: Bool) {
+            super.viewDidAppear(animated)
+            applyRequestedState(animated: false)
+        }
+
+        func setTabBarHidden(_ isHidden: Bool, animated: Bool) {
+            requestedHiddenState = isHidden
+            applyRequestedState(animated: animated)
+        }
+
+        func restoreTabBar() {
+            guard requestedHiddenState else { return }
+            tabBarController?.setTabBarHidden(false, animated: false)
+        }
+
+        private func applyRequestedState(animated: Bool) {
+            guard let tabBarController,
+                  tabBarController.isTabBarHidden != requestedHiddenState else {
+                return
+            }
+            tabBarController.setTabBarHidden(requestedHiddenState, animated: animated)
+        }
+    }
+}
+
+extension View {
+    func appTabBarHidden(_ isHidden: Bool) -> some View {
+        modifier(AppTabBarVisibilityModifier(isHidden: isHidden))
     }
 }
 

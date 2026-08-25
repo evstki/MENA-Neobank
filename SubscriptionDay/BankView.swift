@@ -1,14 +1,17 @@
 import SwiftUI
+import Charts
 
 struct BankView: View {
     @Environment(\.appThemePalette) private var palette
-    @Environment(\.calendar) private var calendar
-    @ScaledMetric(relativeTo: .largeTitle) private var accountSummaryHeight = 210.0
+    @ScaledMetric(relativeTo: .largeTitle) private var accountSummaryHeight = 180.0
     @State private var selectedAccount: BankAccount? = .total
+    @State private var displayCurrency: AppCurrency = .aed
     @State private var showingTransactionSearch = false
+    @State private var showingTransferRecipientPicker = false
+    @State private var showingTransfer = false
+    @State private var selectedTransferDestination: TransferDestination?
     @State private var presentedAction: BankAction?
     @State private var selectedTransaction: BankTransaction?
-    @State private var selectedHistoryPeriod: BankHistoryPeriod = .thirtyDays
     @State private var showsAllTransactions = false
 
     var body: some View {
@@ -23,7 +26,10 @@ struct BankView: View {
                             quickActions
                         }
 
-                        transactionSection
+                        VStack(spacing: AppSurfaceMetrics.blockSpacing) {
+                            overviewWidgets
+                            transactionSection
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
@@ -34,6 +40,19 @@ struct BankView: View {
             .navigationBarTitleDisplayMode(.inline)
             .appTopNavigationBar {
                 showingTransactionSearch = true
+            }
+            .appTabBarHidden(showingTransfer)
+            .navigationDestination(isPresented: $showingTransfer) {
+                TransferView(selectedDestination: $selectedTransferDestination)
+            }
+            .sheet(
+                isPresented: $showingTransferRecipientPicker,
+                onDismiss: continueTransferIfRecipientSelected
+            ) {
+                TransferRecipientPicker(selection: $selectedTransferDestination)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .presentationContentInteraction(.scrolls)
             }
             .sheet(isPresented: $showingTransactionSearch) {
                 BankTransactionSearchView(transactions: BankTransaction.activitySamples)
@@ -58,7 +77,11 @@ struct BankView: View {
         ScrollView(.horizontal) {
             LazyHStack(spacing: 0) {
                 ForEach(BankAccount.allCases) { account in
-                    BankAccountSummaryPage(account: account)
+                    BankAccountSummaryPage(
+                        account: account,
+                        selection: $selectedAccount,
+                        displayCurrency: $displayCurrency
+                    )
                         .containerRelativeFrame(.horizontal)
                         .id(account)
                 }
@@ -69,21 +92,6 @@ struct BankView: View {
         .scrollPosition(id: $selectedAccount)
         .scrollIndicators(.hidden)
         .scrollClipDisabled()
-        .overlay(alignment: .bottom) {
-            HStack(spacing: 8) {
-                ForEach(BankAccount.allCases) { account in
-                    Circle()
-                        .fill(
-                            selectedAccount == account
-                                ? Color.primary
-                                : Color.secondary.opacity(0.55)
-                        )
-                        .frame(width: 7, height: 7)
-                }
-            }
-            .padding(.bottom, 8)
-            .accessibilityHidden(true)
-        }
         .frame(height: accountSummaryHeight)
     }
 
@@ -92,7 +100,7 @@ struct BankView: View {
         let actions = HStack(alignment: .top, spacing: 8) {
             ForEach(BankAction.allCases) { action in
                 BankQuickActionButton(action: action) {
-                    presentedAction = action
+                    perform(action)
                 }
             }
         }
@@ -106,6 +114,38 @@ struct BankView: View {
         }
     }
 
+    private func perform(_ action: BankAction) {
+        if action == .transfer {
+            selectedTransferDestination = nil
+            showingTransferRecipientPicker = true
+        } else {
+            presentedAction = action
+        }
+    }
+
+    private func continueTransferIfRecipientSelected() {
+        guard selectedTransferDestination != nil else { return }
+        showingTransfer = true
+    }
+
+    private var overviewWidgets: some View {
+        BankOverviewWidgets(
+            spentAmountAED: currentMonthAEDSpend,
+            currency: displayCurrency
+        )
+    }
+
+    private var currentMonthAEDSpend: Double {
+        BankTransaction.activitySamples.reduce(into: 0) { total, transaction in
+            guard transaction.currency == .aed,
+                  transaction.amount < 0,
+                  Calendar.current.isDate(transaction.date, equalTo: .now, toGranularity: .month)
+            else { return }
+
+            total += abs(transaction.amount)
+        }
+    }
+
     private var transactionSection: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
@@ -114,7 +154,7 @@ struct BankView: View {
 
                 Spacer(minLength: 0)
 
-                historyPeriodSelector
+                historyViewAllButton
             }
                 .padding(.horizontal, 20)
                 .padding(.top, 18)
@@ -126,43 +166,32 @@ struct BankView: View {
                 }
             }
 
-            if !showsAllTransactions && transactionGroups.count > 3 {
-                viewAllButton
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 16)
-            }
         }
-        .appFloatingSurface(radius: 24)
+        .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                 .stroke(.white.opacity(0.09), lineWidth: 0.5)
         }
     }
 
     private var transactionGroups: [BankTransactionDay] {
-        let cutoffDate = selectedHistoryPeriod.cutoffDate(from: .now, calendar: calendar)
-        let transactions = BankTransaction.activitySamples.filter { $0.date >= cutoffDate }
-        return BankTransactionDay.group(transactions)
+        BankTransactionDay.group(BankTransaction.activitySamples)
     }
 
     private var displayedTransactionGroups: ArraySlice<BankTransactionDay> {
         transactionGroups.prefix(showsAllTransactions ? transactionGroups.count : 3)
     }
 
-    private var historyPeriodSelector: some View {
-        Menu {
-            Picker("History range", selection: $selectedHistoryPeriod) {
-                ForEach(BankHistoryPeriod.allCases) { period in
-                    Text(period.title)
-                        .tag(period)
-                }
+    private var historyViewAllButton: some View {
+        Button {
+            withAnimation(.smooth) {
+                showsAllTransactions = true
             }
         } label: {
             HStack(spacing: 6) {
-                Text(selectedHistoryPeriod.title)
+                Text("View All")
                     .appFont(.subheadline, weight: .semibold)
-                Image(systemName: "chevron.down")
+                Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
             }
             .foregroundStyle(.secondary)
@@ -170,42 +199,320 @@ struct BankView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .onChange(of: selectedHistoryPeriod) {
-            showsAllTransactions = false
+    }
+}
+
+private struct BankOverviewWidgets: View {
+    @Environment(\.locale) private var locale
+    @ScaledMetric(relativeTo: .body) private var widgetHeight = 136.0
+    private let spacing = AppSurfaceMetrics.blockSpacing
+    private let transactionsWidthRatio = 0.50
+    let spentAmountAED: Double
+    let currency: AppCurrency
+
+    var body: some View {
+        GeometryReader { proxy in
+            let availableWidth = proxy.size.width - spacing
+
+            HStack(spacing: spacing) {
+                transactionsWidget
+                    .frame(width: availableWidth * transactionsWidthRatio)
+
+                VStack(spacing: spacing) {
+                    savingsWidget
+                    rewardsWidget
+                }
+                .frame(width: availableWidth * (1 - transactionsWidthRatio))
+            }
         }
+        .frame(height: widgetHeight)
+        .accessibilityElement(children: .contain)
     }
 
-    @ViewBuilder
-    private var viewAllButton: some View {
-        let button = Button {
-            withAnimation(.smooth) {
-                showsAllTransactions = true
-            }
-        } label: {
-            Label("View all", systemImage: "chevron.down")
-                .appFont(.subheadline, weight: .bold)
-                .frame(maxWidth: .infinity)
-        }
-        .controlSize(.large)
+    private var transactionsWidget: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Transactions")
+                .appFont(.headline, weight: .bold)
 
-        if #available(iOS 26.0, *) {
-            button
-                .buttonStyle(.glass)
-                .buttonBorderShape(.capsule)
-        } else {
-            button
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
+            Text(spendingSummary)
+                .appFont(.subheadline, weight: .medium)
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+                .minimumScaleFactor(0.82)
+
+            Spacer(minLength: 4)
+
+            spendingBar
         }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .bankWidgetSurface()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Transactions")
+        .accessibilityValue(spendingSummary)
+    }
+
+    private var savingsWidget: some View {
+        HStack(spacing: 10) {
+            savingsPie
+
+            VStack(alignment: .leading, spacing: 2) {
+                savingsAmountText
+                    .foregroundStyle(.white)
+                Text(earnedSummary)
+                    .appFont(.footnote, weight: .semibold)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            .minimumScaleFactor(0.78)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .bankWidgetSurface()
+        .accessibilityElement(children: .combine)
+    }
+
+    private var savingsAmountText: Text {
+        let amount = Text(verbatim: formattedSavingsAmount)
+            .font(AppFonts.font(.subheadline, weight: .semibold, locale: locale))
+
+        if currency == .usd {
+            let currency = Text(verbatim: "$")
+                .font(AppFonts.font(.subheadline, weight: .semibold, locale: locale))
+            return Text("\(currency)\(amount)")
+        }
+
+        let currency = Text(verbatim: " \(currency.rawValue)")
+            .font(AppFonts.font(.footnote, weight: .semibold, locale: locale))
+
+        return Text("\(amount)\(currency)")
+    }
+
+    private var rewardsWidget: some View {
+        HStack(spacing: 10) {
+            rewardsMark
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("4 rewards")
+                    .appFont(.subheadline, weight: .semibold)
+                    .foregroundStyle(.primary)
+                Text("for you this week")
+                    .appFont(.footnote, weight: .semibold)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .minimumScaleFactor(0.78)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .bankWidgetSurface()
+        .accessibilityElement(children: .combine)
+    }
+
+    private var spendingBar: some View {
+        GeometryReader { proxy in
+            let pillSpacing = 3.0
+            let contentWidth = max(0, proxy.size.width - (pillSpacing * 4))
+
+            HStack(spacing: pillSpacing) {
+                Self.widgetPalette[0]
+                    .frame(width: contentWidth * 0.42)
+                    .clipShape(.capsule)
+                Self.widgetPalette[1]
+                    .frame(width: contentWidth * 0.20)
+                    .clipShape(.capsule)
+                Self.widgetPalette[2]
+                    .frame(width: contentWidth * 0.14)
+                    .clipShape(.capsule)
+                Self.widgetPalette[3]
+                    .frame(width: contentWidth * 0.13)
+                    .clipShape(.capsule)
+                Self.widgetPalette[4]
+                    .frame(width: contentWidth * 0.11)
+                    .clipShape(.capsule)
+            }
+        }
+        .frame(height: 8)
+        .accessibilityHidden(true)
+    }
+
+    private var savingsPie: some View {
+        Chart(Self.savingsBreakdown) { slice in
+            SectorMark(
+                angle: .value("Savings earned", slice.value),
+                innerRadius: .ratio(0.56),
+                angularInset: 1
+            )
+            .cornerRadius(2)
+            .foregroundStyle(by: .value("Source", slice.name))
+        }
+        .chartForegroundStyleScale(
+            domain: Self.savingsBreakdown.map(\.name),
+            range: Self.savingsBreakdown.map(\.color)
+        )
+        .chartLegend(.hidden)
+        .frame(width: 44, height: 44)
+        .scaleEffect(0.82)
+        .accessibilityHidden(true)
+    }
+
+    private var rewardsMark: some View {
+        ZStack {
+            BankRewardBubble(
+                systemImage: "gift.fill",
+                color: Self.widgetPalette[1],
+                size: 26
+            )
+                .offset(x: -9, y: -9)
+            BankRewardBubble(
+                systemImage: "star.fill",
+                color: Self.widgetPalette[3],
+                size: 26
+            )
+                .offset(x: 9, y: -9)
+            BankRewardBubble(
+                systemImage: "sparkles",
+                color: Self.widgetPalette[4],
+                size: 26
+            )
+                .offset(x: -9, y: 9)
+            BankRewardBubble(
+                systemImage: "crown.fill",
+                color: Self.widgetPalette[2],
+                size: 26
+            )
+                .offset(x: 9, y: 9)
+        }
+        .frame(width: 44, height: 44)
+        .scaleEffect(0.82)
+        .accessibilityHidden(true)
+    }
+
+    private static let widgetPalette = [
+        Color(hex: "#DCB67E"),
+        Color(hex: "#AA78D3"),
+        Color(hex: "#8A95FF"),
+        Color(hex: "#58EDD1"),
+        Color(hex: "#A0B3B6")
+    ]
+
+    private static let savingsBreakdown = [
+        BankSavingsSlice(name: "Interest", value: 46, color: widgetPalette[0]),
+        BankSavingsSlice(name: "Round-ups", value: 31, color: widgetPalette[1]),
+        BankSavingsSlice(name: "Rewards", value: 23, color: widgetPalette[2])
+    ]
+
+    private var formattedSpend: String {
+        displayedSpend.formatted(
+            FloatingPointFormatStyle<Double>()
+                .grouping(.automatic)
+                .precision(.fractionLength(0))
+                .locale(locale)
+        )
+    }
+
+    private var formattedWidgetSpend: String {
+        currency == .usd
+            ? "$\(formattedSpend)"
+            : "\(formattedSpend) \(currency.rawValue)"
+    }
+
+    private var spendingSummary: String {
+        AppLocalization.string(
+            "bank.widget.spentIn",
+            locale: locale,
+            arguments: formattedWidgetSpend,
+            monthName
+        )
+    }
+
+    private var earnedSummary: String {
+        AppLocalization.string(
+            "bank.widget.earnedIn",
+            locale: locale,
+            arguments: monthName
+        )
+    }
+
+    private var formattedSavingsAmount: String {
+        displayedSavingsAmount.formatted(
+            FloatingPointFormatStyle<Double>()
+                .grouping(.automatic)
+                .precision(.fractionLength(0))
+                .locale(locale)
+        )
+    }
+
+    private var displayedSpend: Double {
+        BankCurrencyConversion.convert(spentAmountAED, from: .aed, to: currency)
+    }
+
+    private var displayedSavingsAmount: Double {
+        BankCurrencyConversion.convert(11_314, from: .aed, to: currency)
+    }
+
+    private var monthName: String {
+        Date.now.formatted(
+            Date.FormatStyle()
+                .month(.wide)
+                .locale(locale)
+        )
+    }
+}
+
+private struct BankSavingsSlice: Identifiable {
+    let name: String
+    let value: Double
+    let color: Color
+
+    var id: String { name }
+}
+
+private struct BankRewardBubble: View {
+    @Environment(\.appThemePalette) private var palette
+    let systemImage: String
+    let color: Color
+    var size: CGFloat = 27
+
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: size, height: size)
+            .overlay {
+                Image(systemName: systemImage)
+                    .font(.system(size: size * 0.36, weight: .bold))
+                    .foregroundStyle(Color(uiColor: .secondaryLabel))
+            }
+            .clipShape(.circle)
+            .overlay {
+                Circle()
+                    .strokeBorder(palette.surface, lineWidth: 3)
+            }
+    }
+}
+
+private extension View {
+    func bankWidgetSurface() -> some View {
+        appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
+            .overlay {
+                RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
+                    .stroke(.white.opacity(0.09), lineWidth: 0.5)
+            }
     }
 }
 
 private struct BankAccountSummaryPage: View {
     @Environment(\.locale) private var locale
-    @ScaledMetric(relativeTo: .largeTitle) private var balanceFontSize = 68.0
-    @ScaledMetric(relativeTo: .title) private var currencyFontSize = 40.0
+    @ScaledMetric(relativeTo: .largeTitle) private var balanceFontSize = 57.8
+    @ScaledMetric(relativeTo: .title) private var currencyFontSize = 34.0
     @ScaledMetric(relativeTo: .subheadline) private var accountIconSize = 18.0
     let account: BankAccount
+    @Binding var selection: BankAccount?
+    @Binding var displayCurrency: AppCurrency
 
     var body: some View {
         VStack(spacing: 0) {
@@ -220,41 +527,120 @@ private struct BankAccountSummaryPage: View {
                 .lineLimit(1)
                 .environment(\.layoutDirection, .leftToRight)
 
-            HStack(spacing: 6) {
-                accountIcon
-                Text(verbatim: account.currency.rawValue)
-                Text(verbatim: "∙")
-                Text(account.name)
-            }
-            .appFont(.subheadline, weight: .semibold)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .padding(.top, 8)
+            accountControls
+                .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
     }
 
-    @ViewBuilder
     private var accountIcon: some View {
-        if account == .total {
-            Image(systemName: "dollarsign.circle.fill")
-                .font(.system(size: accountIconSize, weight: .semibold))
-                .accessibilityHidden(true)
+        Image(systemName: "creditcard.fill")
+            .font(.system(size: accountIconSize, weight: .semibold))
+            .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var accountControls: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 8) {
+                controlRow
+            }
         } else {
-            Image(systemName: "creditcard.fill")
-                .font(.system(size: accountIconSize, weight: .semibold))
-                .accessibilityHidden(true)
+            controlRow
         }
+    }
+
+    @ViewBuilder
+    private var controlRow: some View {
+        if #available(iOS 26.0, *) {
+            HStack(spacing: 8) {
+                accountSelector
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+                currencyButton
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.capsule)
+            }
+        } else {
+            HStack(spacing: 8) {
+                accountSelector
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+                currencyButton
+                    .buttonStyle(.bordered)
+                    .buttonBorderShape(.capsule)
+            }
+        }
+    }
+
+    private var accountSelector: some View {
+        Menu {
+            ForEach(BankAccount.allCases) { option in
+                Button {
+                    withAnimation(.smooth) {
+                        selection = option
+                    }
+                } label: {
+                    HStack {
+                        Text(option.title)
+
+                        if selection == option {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                if account != .total {
+                    accountIcon
+                }
+
+                if account == .total {
+                    Text(account.name)
+                } else {
+                    Text(account.title)
+                }
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.bold))
+            }
+            .appFont(.subheadline, weight: .semibold)
+            .foregroundStyle(.white)
+            .lineLimit(1)
+        }
+        .accessibilityLabel("Select account")
+        .accessibilityValue(Text(account.title))
+        .accessibilityHint("Shows the account list")
+    }
+
+    private var currencyButton: some View {
+        Button {
+            withAnimation(.smooth) {
+                displayCurrency = displayCurrency == .aed ? .usd : .aed
+            }
+        } label: {
+            Text(verbatim: displayCurrency.rawValue)
+                .appFont(.subheadline, weight: .semibold)
+                .foregroundStyle(.white)
+                .contentTransition(.numericText())
+        }
+        .accessibilityLabel("Display currency")
+        .accessibilityValue(displayCurrency.rawValue)
+        .accessibilityHint(
+            displayCurrency == .aed
+                ? "Switches values to US dollars"
+                : "Switches values to UAE dirhams"
+        )
     }
 
     private var balanceText: Text {
         let amount = Text(verbatim: formattedBalance)
             .font(AppFonts.font(size: balanceFontSize, weight: .heavy, relativeTo: .largeTitle, locale: locale))
 
-        if account.currency == .usd {
+        if displayCurrency == .usd {
             let currency = Text(verbatim: "$")
-                .font(AppFonts.font(size: currencyFontSize, weight: .heavy, relativeTo: .title, locale: locale))
+                .font(AppFonts.font(size: balanceFontSize, weight: .heavy, relativeTo: .largeTitle, locale: locale))
             return Text("\(currency)\(amount)")
         } else {
             let currency = Text(verbatim: "\u{00A0}AED")
@@ -264,11 +650,19 @@ private struct BankAccountSummaryPage: View {
     }
 
     private var formattedBalance: String {
-        abs(account.balance).formatted(
+        abs(displayedBalance).formatted(
             FloatingPointFormatStyle<Double>()
                 .grouping(.automatic)
                 .precision(.fractionLength(0))
                 .locale(locale)
+        )
+    }
+
+    private var displayedBalance: Double {
+        BankCurrencyConversion.convert(
+            account.balance,
+            from: account.currency,
+            to: displayCurrency
         )
     }
 }
@@ -352,17 +746,19 @@ private struct BankQuickActionButton: View {
 
         if #available(iOS 26.0, *) {
             button
-                .controlSize(.small)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+                .buttonStyle(.plain)
                 .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+                .contentShape(Circle())
+                .glassEffect(
+                    .regular.tint(palette.surface).interactive(),
+                    in: .circle
+                )
         } else {
             button
                 .buttonStyle(.plain)
-                .background(palette.elevatedSurface, in: .circle)
+                .background(palette.surface, in: .circle)
                 .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
+                .contentShape(Circle())
         }
     }
 }
@@ -425,7 +821,7 @@ private struct BankTransactionRow: View {
         let cents = Text(verbatim: "\(parts.separator)\(parts.cents)")
             .font(centsFont)
         let currencySuffix = Text(verbatim: transaction.currency == .aed ? "\u{00A0}AED" : "")
-            .font(regularFont)
+            .font(centsFont)
 
         return Text("\(wholeAmount)\(cents)\(currencySuffix)")
     }
@@ -651,9 +1047,12 @@ private struct BankTransactionDetailSheet: View {
                     .environment(\.layoutDirection, .leftToRight)
             }
         }
-        .background(palette.surface.opacity(0.62), in: .rect(cornerRadius: 24))
+        .background(
+            palette.surface.opacity(0.62),
+            in: .rect(cornerRadius: AppSurfaceMetrics.cornerRadius)
+        )
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                 .stroke(.white.opacity(0.09), lineWidth: 0.5)
         }
     }
@@ -845,43 +1244,17 @@ private enum BankAction: String, CaseIterable, Identifiable {
     }
 }
 
-private enum BankHistoryPeriod: String, CaseIterable, Identifiable {
-    case thirtyDays
-    case threeMonths
-    case sixMonths
-    case oneYear
+private enum BankCurrencyConversion {
+    private static let aedPerUSD = 3.6725
 
-    var id: Self { self }
+    static func convert(_ amount: Double, from source: AppCurrency, to target: AppCurrency) -> Double {
+        guard source != target else { return amount }
 
-    var title: LocalizedStringResource {
-        switch self {
-        case .thirtyDays: "30 days"
-        case .threeMonths: "3 months"
-        case .sixMonths: "6 months"
-        case .oneYear: "1 year"
+        switch (source, target) {
+        case (.aed, .usd): return amount / aedPerUSD
+        case (.usd, .aed): return amount * aedPerUSD
+        default: return amount
         }
-    }
-
-    func cutoffDate(from date: Date, calendar: Calendar) -> Date {
-        let component: Calendar.Component
-        let value: Int
-
-        switch self {
-        case .thirtyDays:
-            component = .day
-            value = -30
-        case .threeMonths:
-            component = .month
-            value = -3
-        case .sixMonths:
-            component = .month
-            value = -6
-        case .oneYear:
-            component = .year
-            value = -1
-        }
-
-        return calendar.date(byAdding: component, value: value, to: date) ?? .distantPast
     }
 }
 
@@ -902,13 +1275,16 @@ private enum BankAccount: String, CaseIterable, Identifiable {
 
     var name: LocalizedStringResource {
         switch self {
-        case .total: "Total"
+        case .total: "All accounts"
         case .visa, .mastercard: "Card balance"
         }
     }
 
     var currency: AppCurrency {
-        .usd
+        switch self {
+        case .total: .aed
+        case .visa, .mastercard: .usd
+        }
     }
 
     var balance: Double {
@@ -933,28 +1309,14 @@ private struct BankTransaction: Identifiable {
     let searchTerms: String
     let brand: ServiceBrand?
 
-    static let activitySamples = usdSamples
+    static let activitySamples = (aedSamples + usdExceptionSamples)
+        .sorted { $0.date > $1.date }
 
-    static let usdSamples: [BankTransaction] = [
+    static let usdExceptionSamples: [BankTransaction] = [
         sample("usd-salary", "Salary", "Northstar Studio", 8_250, .usd, daysAgo: 0, hour: 9, symbol: "briefcase.fill", color: .green, searchTerms: "salary northstar studio راتب نورث ستار"),
         sample("usd-exchange", "Exchanged to AED", "USD → AED account", -1_250, .usd, daysAgo: 0, hour: 11, symbol: "arrow.triangle.2.circlepath", color: .blue, searchTerms: "exchange usd aed تحويل دولار درهم"),
-        sample("usd-coffee", "Common Grounds", "Coffee shop", -6.80, .usd, daysAgo: 0, hour: 12, symbol: "cup.and.saucer.fill", color: .brown, searchTerms: "common grounds coffee cafe قهوة مقهى"),
-        sample("usd-netflix", "Netflix", "Entertainment", -15.49, .usd, daysAgo: 1, hour: 20, symbol: "play.rectangle.fill", color: .red, searchTerms: "netflix entertainment نتفلكس ترفيه", brandName: "Netflix"),
         sample("usd-youtube-premium", "YouTube Premium", "Subscription", -13.99, .usd, daysAgo: 1, hour: 21, symbol: "play.fill", color: .red, searchTerms: "youtube premium subscription يوتيوب بريميوم اشتراك", brandName: "YouTube Premium"),
-        sample("usd-groceries", "Whole Foods Market", "Groceries", -84.32, .usd, daysAgo: 1, hour: 18, symbol: "basket.fill", color: .green, searchTerms: "whole foods market groceries بقالة سوق"),
-        sample("usd-uber", "Uber", "Transport", -23.60, .usd, daysAgo: 1, hour: 8, symbol: "car.fill", color: .black, searchTerms: "uber transport ride أوبر مواصلات"),
-        sample("usd-cashback", "Cashback", "Rewards", 12.40, .usd, daysAgo: 1, hour: 10, symbol: "sparkles", color: .mint, searchTerms: "cashback rewards استرداد مكافآت"),
-        sample("usd-layla", "Layla Hassan", "Personal transfer", 350, .usd, daysAgo: 2, hour: 14, symbol: "person.fill", color: .purple, searchTerms: "layla hassan transfer ليلى حسن تحويل"),
-        sample("usd-hbo-max", "HBO Max", "Entertainment", -9.99, .usd, daysAgo: 2, hour: 20, symbol: "tv.fill", color: .black, searchTerms: "hbo max entertainment اتش بي او ماكس ترفيه", brandName: "HBO Max"),
-        sample("usd-cursor", "Cursor", "Productivity", -20, .usd, daysAgo: 2, hour: 12, symbol: "cursorarrow", color: .black, searchTerms: "cursor productivity subscription كيرسر إنتاجية اشتراك", brandName: "Cursor"),
-        sample("usd-amazon", "Amazon", "Shopping", -127.45, .usd, daysAgo: 2, hour: 16, symbol: "shippingbox.fill", color: .orange, searchTerms: "amazon shopping أمازون تسوق"),
-        sample("usd-pharmacy", "CVS Pharmacy", "Health", -32.18, .usd, daysAgo: 2, hour: 19, symbol: "cross.case.fill", color: .red, searchTerms: "cvs pharmacy health صيدلية صحة"),
-        sample("usd-apple-music", "Apple Music", "Subscription", -10.99, .usd, daysAgo: 3, hour: 8, symbol: "music.note", color: .pink, searchTerms: "apple music subscription آبل موسيقى اشتراك"),
-        sample("usd-emirates", "Emirates", "Travel", -624.80, .usd, daysAgo: 4, hour: 10, symbol: "airplane", color: .red, searchTerms: "emirates travel flight طيران الإمارات سفر"),
-        sample("usd-adobe", "Adobe", "Subscription", -22.99, .usd, daysAgo: 4, hour: 12, symbol: "scribble.variable", color: .purple, searchTerms: "adobe subscription أدوبي اشتراك"),
-        sample("usd-electricity", "Electricity bill", "Utilities", -91.24, .usd, daysAgo: 4, hour: 17, symbol: "bolt.fill", color: .yellow, searchTerms: "electricity bill utilities كهرباء فاتورة"),
-        sample("usd-gym", "Gym membership", "Health & Fitness", -65, .usd, daysAgo: 6, hour: 7, symbol: "dumbbell.fill", color: .indigo, searchTerms: "gym membership fitness نادي لياقة"),
-        sample("usd-restaurant", "The Lighthouse", "Food & Drink", -48.30, .usd, daysAgo: 6, hour: 21, symbol: "fork.knife", color: .teal, searchTerms: "lighthouse restaurant food مطعم طعام")
+        sample("usd-cursor", "Cursor", "Productivity", -20, .usd, daysAgo: 2, hour: 12, symbol: "cursorarrow", color: .black, searchTerms: "cursor productivity subscription كيرسر إنتاجية اشتراك", brandName: "Cursor")
     ]
 
     static let aedSamples: [BankTransaction] = [

@@ -221,6 +221,11 @@ enum SDTheme {
     static let chartBlue = Color(red: 0.10, green: 0.56, blue: 0.81)
 }
 
+enum AppSurfaceMetrics {
+    static let cornerRadius: CGFloat = 16.8
+    static let blockSpacing: CGFloat = 8
+}
+
 private struct AppFloatingSurfaceModifier: ViewModifier {
     @Environment(\.appThemePalette) private var palette
     let radius: CGFloat

@@ -27,15 +27,7 @@ struct ContentView: View {
             Tab("Savings", systemImage: "chart.bar.xaxis", value: .grow) {
                 GrowView()
             }
-
-            Tab(value: .add, role: .search) {
-                Color.clear
-            } label: {
-                Image(uiImage: accentAddIcon)
-                    .accessibilityLabel("Add Subscription")
-            }
         }
-        .onChange(of: selectedTab, handleTabChange)
         .onChange(of: model.subscriptions.count, requestReviewAfterSubscriptionAdded)
         .sheet(isPresented: $model.showingCatalog) {
                 AddSubscriptionView()
@@ -61,17 +53,6 @@ struct ContentView: View {
         .tint(palette.accent)
     }
 
-    private func handleTabChange(_ oldTab: AppTab, _ newTab: AppTab) {
-        guard newTab == .add else { return }
-        selectedTab = oldTab == .add ? .overview : oldTab
-        presentCatalog()
-    }
-
-    private func presentCatalog() {
-        model.draftStartDate = nil
-        model.showingCatalog = true
-    }
-
     private func requestReviewAfterSubscriptionAdded(_ oldCount: Int, _ newCount: Int) {
         guard newCount > oldCount, !hasRequestedReview else { return }
         hasRequestedReview = true
@@ -81,11 +62,6 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
             requestReview()
         }
-    }
-
-    private var accentAddIcon: UIImage {
-        let symbol = UIImage(systemName: "plus.circle.fill") ?? UIImage()
-        return symbol.withTintColor(UIColor(palette.accent), renderingMode: .alwaysOriginal)
     }
 
     private var palette: AppThemePalette {
@@ -98,7 +74,6 @@ private enum AppTab: Hashable {
     case pay
     case products
     case grow
-    case add
 }
 
 #Preview {

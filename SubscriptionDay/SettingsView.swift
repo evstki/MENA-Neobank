@@ -122,7 +122,7 @@ struct SettingsView: View {
                 }
                 .appThemedSurfaceRow()
             }
-            .id(accentColor)
+            .id(SettingsFormIdentity(language: language, accentColor: accentColor))
             .contentMargins(.top, 0, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .background {
@@ -143,6 +143,8 @@ struct SettingsView: View {
             }
         }
         .environment(\.appThemePalette, settingsPalette)
+        .environment(\.locale, language.locale)
+        .environment(\.layoutDirection, language.layoutDirection)
         .tint(settingsPalette.accent)
         .alert("Profile", isPresented: Binding(
             get: { alertMessage != nil },
@@ -176,6 +178,11 @@ struct SettingsView: View {
         }
         .buttonStyle(.plain)
     }
+}
+
+private struct SettingsFormIdentity: Hashable {
+    let language: AppLanguage
+    let accentColor: AppAccentColor
 }
 
 private struct ProfileTopBackdrop: View {

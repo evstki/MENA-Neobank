@@ -176,10 +176,15 @@ private struct GrowSavingsSection: View {
             GrowSectionHeader(title: "Savings accounts")
 
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 14) {
+                LazyHStack(spacing: AppSurfaceMetrics.blockSpacing) {
                     ForEach(GrowContent.accounts) { account in
                         GrowSavingsCard(account: account)
-                            .containerRelativeFrame(.horizontal, count: 10, span: 8, spacing: 14)
+                            .containerRelativeFrame(
+                                .horizontal,
+                                count: 10,
+                                span: 8,
+                                spacing: AppSurfaceMetrics.blockSpacing
+                            )
                     }
                 }
                 .scrollTargetLayout()
@@ -256,7 +261,7 @@ private struct GrowSavingsCard: View {
         }
         .padding(20)
         .frame(minHeight: 246, alignment: .topLeading)
-        .growCardSurface(radius: 22)
+        .growCardSurface(radius: AppSurfaceMetrics.cornerRadius)
         .accessibilityElement(children: .combine)
     }
 
@@ -358,7 +363,7 @@ private struct GrowInvestmentsSection: View {
                 GrowInvestmentActions()
             }
             .padding(20)
-            .growCardSurface(radius: 22)
+            .growCardSurface(radius: AppSurfaceMetrics.cornerRadius)
         }
     }
 

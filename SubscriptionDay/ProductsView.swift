@@ -3,6 +3,7 @@ import SwiftUI
 struct ProductsView: View {
     @State private var selectedProduct: BankProduct?
     @State private var showingSearch = false
+    @State private var showingCards = false
     @State private var showingCardOrder = false
     @State private var showingSubscriptionTracker = false
 
@@ -17,9 +18,10 @@ struct ProductsView: View {
                             title: "Products",
                             description: "Everything to bank, protect and grow"
                         )
-                        ProductsCardsSection { product in
-                            open(product)
-                        }
+                        ProductsCardsSection(
+                            viewAllAction: { showingCards = true },
+                            action: open
+                        )
                         ProductsBentoSection { product in
                             open(product)
                         }
@@ -38,11 +40,15 @@ struct ProductsView: View {
             }
             .navigationTitle("Products")
             .navigationBarTitleDisplayMode(.large)
-            .appTopNavigationBar(isVisible: !showingCardOrder, searchTitle: "Search products") {
+            .appTopNavigationBar(searchTitle: "Search products") {
                 showingSearch = true
             }
+            .appTabBarHidden(showingCardOrder || showingCards)
             .navigationDestination(isPresented: $showingCardOrder) {
                 CardOrderView()
+            }
+            .navigationDestination(isPresented: $showingCards) {
+                CardsView()
             }
             .sheet(item: $selectedProduct) { product in
                 ProductDetailSheet(product: product)
@@ -74,27 +80,34 @@ struct ProductsView: View {
 }
 
 private struct ProductsCardsSection: View {
+    let viewAllAction: () -> Void
     let action: (BankProduct) -> Void
 
     var body: some View {
-        let radius: CGFloat = 26
+        let radius = AppSurfaceMetrics.cornerRadius
         let content = VStack(alignment: .leading, spacing: 18) {
-            Button {
-                action(ProductsContent.newCard)
-            } label: {
-                HStack(spacing: 4) {
-                    Text("Cards")
-                        .appFont(.headline, weight: .bold)
+            HStack(spacing: 12) {
+                Text("Cards")
+                    .appFont(.title2, weight: .bold)
 
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                Spacer(minLength: 0)
+
+                Button(action: viewAllAction) {
+                    HStack(spacing: 6) {
+                        Text("View All")
+                            .appFont(.subheadline, weight: .semibold)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 8)
+                    .contentShape(.rect)
                 }
-                .foregroundStyle(.primary)
+                .buttonStyle(.plain)
+                .accessibilityLabel("View all cards")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("View all cards")
 
-            HStack(alignment: .top, spacing: 8) {
+            HStack(alignment: .top, spacing: AppSurfaceMetrics.blockSpacing) {
                 ForEach(ProductsContent.cards) { product in
                     ProductCardShelfItem(product: product) {
                         action(product)
@@ -175,12 +188,12 @@ private struct ProductCardShelfItem: View {
 
 private struct ProductsBentoSection: View {
     private let bentoHeight: CGFloat = 150
-    private let bentoSpacing: CGFloat = 12
+    private let bentoSpacing = AppSurfaceMetrics.blockSpacing
     let action: (BankProduct) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            ProductSectionTitle("Explore products")
+            ProductSectionTitle("Explore")
 
             bentoContent
                 .frame(height: totalBentoHeight)
@@ -238,10 +251,16 @@ private struct ProductsBentoSection: View {
                 product: first,
                 isCompact: true,
                 showsArtwork: first.artworkName != nil,
-                artworkSize: CGSize(width: 56, height: 52),
-                artworkOffset: CGSize(width: 16, height: 0),
+                artworkSize: first.id == ProductsContent.investments.id
+                    ? CGSize(width: 96, height: 82)
+                    : CGSize(width: 56, height: 52),
+                artworkOffset: first.id == ProductsContent.investments.id
+                    ? CGSize(width: 20, height: 0)
+                    : CGSize(width: 16, height: 0),
                 artworkAlignment: .trailing,
-                contentTrailingPadding: first.artworkName == nil ? nil : 44
+                contentTrailingPadding: first.artworkName == nil
+                    ? nil
+                    : first.id == ProductsContent.investments.id ? 68 : 44
             ) {
                 action(first)
             }
@@ -251,10 +270,17 @@ private struct ProductsBentoSection: View {
                 product: second,
                 isCompact: true,
                 showsArtwork: second.artworkName != nil,
-                artworkSize: CGSize(width: 56, height: 52),
-                artworkOffset: CGSize(width: 16, height: 0),
+                mirrorsArtwork: second.id == ProductsContent.esim.id,
+                artworkSize: second.id == ProductsContent.esim.id
+                    ? CGSize(width: 96, height: 82)
+                    : CGSize(width: 56, height: 52),
+                artworkOffset: second.id == ProductsContent.esim.id
+                    ? CGSize(width: 22, height: 0)
+                    : CGSize(width: 16, height: 0),
                 artworkAlignment: .trailing,
-                contentTrailingPadding: second.artworkName == nil ? nil : 44
+                contentTrailingPadding: second.artworkName == nil
+                    ? nil
+                    : second.id == ProductsContent.esim.id ? 68 : 44
             ) {
                 action(second)
             }
@@ -276,6 +302,7 @@ private struct ProductBentoCard: View {
     let product: BankProduct
     var isCompact = false
     var showsArtwork = true
+    var mirrorsArtwork = false
     var artworkSize: CGSize = .zero
     var artworkOffset: CGSize = .zero
     var artworkAlignment: Alignment = .bottomTrailing
@@ -331,6 +358,7 @@ private struct ProductBentoCard: View {
             if showsArtwork {
                 ProductArtwork(product: product)
                     .frame(width: artworkSize.width, height: artworkSize.height)
+                    .scaleEffect(x: mirrorsArtwork ? -1 : 1, y: 1)
                     .offset(x: artworkOffset.width, y: artworkOffset.height)
             }
         }
@@ -338,7 +366,7 @@ private struct ProductBentoCard: View {
     }
 
     private var radius: CGFloat {
-        isCompact ? 24 : 26
+        AppSurfaceMetrics.cornerRadius
     }
 }
 
@@ -368,9 +396,9 @@ private struct ProductsCategoriesSection: View {
             ProductSectionTitle("All products")
 
             listContent
-                .appFloatingSurface(radius: 26)
+                .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
                 .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                         .stroke(.white.opacity(0.09), lineWidth: 0.5)
                 }
         }
@@ -644,7 +672,7 @@ private enum ProductsContent {
         detail: "Build and manage a diversified portfolio of funds, ETFs and stocks.",
         systemImage: "chart.line.uptrend.xyaxis",
         tint: .yellow,
-        artworkName: "bitcoin",
+        artworkName: "coin",
         searchTerms: "investments portfolio funds etf stocks wealth"
     )
 
@@ -733,10 +761,11 @@ private enum ProductsContent {
     static let esim = BankProduct(
         id: "esim",
         title: "eSIM",
-        subtitle: "Mobile data wherever you go",
+        subtitle: "Mobile data",
         detail: "Buy and manage mobile data plans for travel without changing your physical SIM.",
         systemImage: "antenna.radiowaves.left.and.right",
         tint: .cyan,
+        artworkName: "plane",
         searchTerms: "esim mobile data travel roaming connectivity"
     )
 

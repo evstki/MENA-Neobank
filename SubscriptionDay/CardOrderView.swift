@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CardOrderView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedFinish = CardFinish.spaceGrey
     @State private var showingOrderConfirmation = false
 
@@ -37,11 +38,10 @@ struct CardOrderView: View {
             .padding(.bottom, 12)
         }
         .foregroundStyle(.white)
-        .navigationTitle("Customisable")
+        .navigationTitle("Select design")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar(.hidden, for: .tabBar)
         .alert("Card ordered", isPresented: $showingOrderConfirmation) {
             Button("Done") { dismiss() }
         } message: {
@@ -87,13 +87,7 @@ struct CardOrderView: View {
     private var orderContent: some View {
         VStack(spacing: 16) {
             VStack(spacing: 8) {
-                Text(
-                    String(
-                        format: String(localized: "Premium · %@"),
-                        selectedFinish.title
-                    )
-                )
-                .appFont(size: 29, weight: .bold, relativeTo: .title)
+                finishTitle
 
                 Text("Made from plastic with a subtle shimmer finish. Choose the colour that feels most like you.")
                     .appFont(size: 17, weight: .medium, relativeTo: .body)
@@ -118,9 +112,34 @@ struct CardOrderView: View {
         }
         .padding(.horizontal, 20)
     }
+
+    private var finishTitle: some View {
+        ZStack {
+            if reduceMotion {
+                finishTitleText
+            } else {
+                finishTitleText
+                    .id(selectedFinish)
+                    .transition(.blurReplace)
+            }
+        }
+        .appFont(size: 29, weight: .bold, relativeTo: .title)
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
+        .animation(reduceMotion ? nil : .smooth(duration: 0.24), value: selectedFinish)
+    }
+
+    private var finishTitleText: Text {
+        Text(
+            String(
+                format: String(localized: "Premium · %@"),
+                selectedFinish.title
+            )
+        )
+    }
 }
 
-private enum CardFinish: String, CaseIterable, Identifiable {
+enum CardFinish: String, CaseIterable, Identifiable {
     case spaceGrey
     case blush
     case lavender
@@ -189,20 +208,31 @@ private struct VisaCardShadow: View {
     }
 }
 
-private struct VisaCardPreview: View {
+enum CardPreviewOrientation {
+    case portrait
+    case landscape
+
+    var aspectRatio: CGFloat {
+        switch self {
+        case .portrait: 691.0 / 1096.0
+        case .landscape: 1096.0 / 691.0
+        }
+    }
+}
+
+struct VisaCardPreview: View {
     let finish: CardFinish
+    var orientation: CardPreviewOrientation = .portrait
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(finish.color)
 
-            Image("visa_card_overlay")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .allowsHitTesting(false)
+            artwork
         }
-        .aspectRatio(691.0 / 1096.0, contentMode: .fit)
+        .aspectRatio(orientation.aspectRatio, contentMode: .fit)
+        .compositingGroup()
         .clipShape(.rect(cornerRadius: 11))
         .animation(.easeInOut(duration: 0.28), value: finish)
         .accessibilityElement(children: .ignore)
@@ -214,6 +244,27 @@ private struct VisaCardPreview: View {
                 )
             )
         )
+    }
+
+    @ViewBuilder
+    private var artwork: some View {
+        switch orientation {
+        case .portrait:
+            Image("visa_card_overlay")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .allowsHitTesting(false)
+        case .landscape:
+            GeometryReader { geometry in
+                Image("visa_card_overlay")
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: geometry.size.height, height: geometry.size.width)
+                    .rotationEffect(.degrees(-90))
+                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 }
 

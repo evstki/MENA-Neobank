@@ -16,11 +16,13 @@ struct PayView: View {
                             title: "Services",
                             description: "Everything for the city, in one place"
                         )
-                        PayBentoActionsSection { entry in
-                            selectedEntry = entry
-                        }
-                        PayRewardsCard {
-                            selectedEntry = PayHubContent.rewards
+                        VStack(spacing: AppSurfaceMetrics.blockSpacing) {
+                            PayBentoActionsSection { entry in
+                                selectedEntry = entry
+                            }
+                            PayRewardsCard {
+                                selectedEntry = PayHubContent.rewards
+                            }
                         }
                         PayServicesSection { entry in
                             selectedEntry = entry
@@ -105,12 +107,12 @@ private struct PayRewardsCard: View {
                         .accessibilityHidden(true)
                 }
             }
-            .appFloatingSurface(radius: 26)
+            .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
             .overlay {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.18), lineWidth: 0.7)
             }
-            .clipShape(.rect(cornerRadius: 26))
+            .clipShape(.rect(cornerRadius: AppSurfaceMetrics.cornerRadius))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -118,9 +120,9 @@ private struct PayRewardsCard: View {
 }
 
 private struct PayBentoActionsSection: View {
-    private let blockSpacing: CGFloat = 12
+    private let blockSpacing = AppSurfaceMetrics.blockSpacing
     private let actionColumns = [
-        GridItem(.flexible(minimum: 0), spacing: 12, alignment: .top),
+        GridItem(.flexible(minimum: 0), spacing: AppSurfaceMetrics.blockSpacing, alignment: .top),
         GridItem(.flexible(minimum: 0), spacing: 0, alignment: .top)
     ]
     let action: (PayHubEntry) -> Void
@@ -188,13 +190,13 @@ private struct PayBentoPrimaryButton: View {
                 .frame(width: 190, height: 148)
                 .offset(x: 38, y: 18)
         }
-        .contentShape(.rect(cornerRadius: 26))
+        .contentShape(.rect(cornerRadius: AppSurfaceMetrics.cornerRadius))
 
         content
-            .clipShape(.rect(cornerRadius: 26))
-            .appFloatingSurface(radius: 26)
+            .clipShape(.rect(cornerRadius: AppSurfaceMetrics.cornerRadius))
+            .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
             .overlay {
-                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.09), lineWidth: 0.5)
             }
     }
@@ -236,15 +238,15 @@ private struct PayBentoCompactButton: View {
         .overlay(alignment: .bottomTrailing) {
             PayBentoArtwork(entry: entry)
                 .frame(width: 104, height: 80)
-                .offset(x: 72, y: 10)
+                .offset(x: 32, y: 10)
         }
-        .contentShape(.rect(cornerRadius: 24))
+        .contentShape(.rect(cornerRadius: AppSurfaceMetrics.cornerRadius))
 
         content
-            .clipShape(.rect(cornerRadius: 24))
-            .appFloatingSurface(radius: 24)
+            .clipShape(.rect(cornerRadius: AppSurfaceMetrics.cornerRadius))
+            .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
             .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.09), lineWidth: 0.5)
             }
     }
@@ -276,7 +278,7 @@ private struct PayPromotionsSection: View {
             PaySectionTitle("Promotions")
 
             ScrollView(.horizontal) {
-                LazyHStack(spacing: 12) {
+                LazyHStack(spacing: AppSurfaceMetrics.blockSpacing) {
                     ForEach(PayHubContent.promotions) { entry in
                         PayPromotionCard(entry: entry) {
                             action(entry)
@@ -329,9 +331,9 @@ private struct PayPromotionCard: View {
             }
             .padding(18)
             .frame(width: 280, alignment: .leading)
-            .appFloatingSurface(radius: 22)
+            .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
             .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.09), lineWidth: 0.6)
             }
         }
@@ -341,8 +343,8 @@ private struct PayPromotionCard: View {
 
 private struct PayServicesSection: View {
     private let columns = [
-        GridItem(.flexible(), spacing: 12),
-        GridItem(.flexible(), spacing: 12)
+        GridItem(.flexible(), spacing: AppSurfaceMetrics.blockSpacing),
+        GridItem(.flexible(), spacing: AppSurfaceMetrics.blockSpacing)
     ]
     let action: (PayHubEntry) -> Void
 
@@ -350,7 +352,11 @@ private struct PayServicesSection: View {
         VStack(alignment: .leading, spacing: 14) {
             PaySectionTitle("City & government services")
 
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 12) {
+            LazyVGrid(
+                columns: columns,
+                alignment: .leading,
+                spacing: AppSurfaceMetrics.blockSpacing
+            ) {
                 ForEach(PayHubContent.services) { entry in
                     PayServiceCard(entry: entry) {
                         action(entry)
@@ -389,9 +395,9 @@ private struct PayServiceCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, minHeight: 170, alignment: .leading)
-            .appFloatingSurface(radius: 22)
+            .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
             .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                     .stroke(.white.opacity(0.08), lineWidth: 0.6)
             }
         }
@@ -451,9 +457,9 @@ private struct PayRecentPaymentsSection: View {
             }
         }
         .padding(.bottom, 8)
-        .appFloatingSurface(radius: 24)
+        .appFloatingSurface(radius: AppSurfaceMetrics.cornerRadius)
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: AppSurfaceMetrics.cornerRadius, style: .continuous)
                 .stroke(.white.opacity(0.09), lineWidth: 0.5)
         }
     }
